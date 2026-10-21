@@ -68,7 +68,12 @@
     .camera-zone p{font-size:13px;color:var(--muted);margin:9px 0 13px;line-height:1.5}
     .camera-input{display:none}
     .camera-label{display:inline-block;margin:0;background:#e7eeff;color:#1b4fa7;border:1px solid #c5d7fa;padding:13px 19px;border-radius:13px;min-height:46px;font-weight:800;font-size:14px;cursor:pointer}
-    #preview{display:none;max-width:100%;max-height:220px;object-fit:contain;margin:12px auto;border-radius:12px}
+    #preview{display:block;max-width:100%;max-height:365px;width:auto;height:auto;object-fit:contain;border-radius:12px;touch-action:manipulation}
+    .preview-box{position:relative;display:table;margin:14px auto 6px;max-width:100%;line-height:0;cursor:crosshair}
+    .focus-box{position:absolute;border:2px solid #ffdf72;outline:2px solid rgba(22,51,98,.65);background:rgba(255,222,105,.13);border-radius:9px;pointer-events:none;box-shadow:0 0 0 999px rgba(4,22,53,.06)}
+    .focus-help{max-width:350px;color:#2855a0!important;font-weight:700;margin:8px auto!important}
+    .focus-reset{background:transparent;border:0;text-decoration:underline;color:#1b58ba;font-weight:700;padding:8px}
+    .status strong{color:var(--ink)}
     .step-label{margin:15px 0 8px;display:block}
     textarea{min-height:78px;resize:vertical;font-size:14px;line-height:1.5}
     .prices{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
@@ -123,10 +128,15 @@
     <p>Fotografa un cartellino o scegli una foto. L'app proverà a riconoscere il prezzo scritto.</p>
     <label for="photo" class="camera-label">Scatta o scegli foto</label>
     <input id="photo" class="camera-input" type="file" accept="image/*">
-    <img id="preview" alt="Foto del prezzo selezionata">
+    <div id="preview-box" class="preview-box" hidden>
+     <img id="preview" alt="Foto selezionata: tocca il punto dove compare il prezzo per ingrandirlo nella lettura">
+     <div id="focus-box" class="focus-box" hidden></div>
+    </div>
+    <p id="focus-help" class="focus-help" hidden>Tocca il prezzo nella fotografia per far leggere solo quella zona.</p>
+    <button type="button" class="focus-reset" id="reset-focus" hidden>Leggi tutta la foto</button>
    </div>
-   <button class="primary" style="margin-top:12px" type="button" id="recognize" disabled>Riconosci i prezzi nella foto</button>
-   <p class="hint">La prima volta serve internet per caricare il riconoscimento testo. L'analisi avviene nel browser del telefono. Controlla sempre il prezzo riconosciuto.</p>
+   <button class="primary" style="margin-top:12px" type="button" id="recognize" disabled>Leggi il prezzo dalla foto</button>
+   <p class="hint">L'analisi avviene sul tuo iPhone e richiede internet al primo utilizzo. Il risultato può essere inesatto: verifica sempre l'importo prima di aggiungerlo.</p>
    <label for="scan-text" class="step-label">Oppure incolla qui un prezzo o del testo</label>
    <textarea id="scan-text" placeholder="Esempio: LATTE INTERO 1,79 €"></textarea>
    <button class="secondary" style="margin-top:9px;width:100%" type="button" id="find-prices">Trova i prezzi nel testo</button>
@@ -211,34 +221,135 @@
    const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='la-mia-spesa.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);showToast('Lista esportata');
  });
  function extractPrices(text){
-   const matches=String(text).match(/(?:€\s*)?\d{1,5}(?:[.,]\d{3})*[.,]\d{2}(?:\s*€)?/g)||[];
-   const arr=[];for(const m of matches){const c=parsePrice(m);if(c!==null&&c<=99999999&&!arr.includes(c))arr.push(c);}return arr.slice(0,30);
+   const arr=[];
+   const lines=String(text).replace(/[Oo](?=\d)/g,'0').split(/\r?\n/);
+   lines.forEach((line,i)=>{
+     // L'importo totale può essere sotto la parola «Importo» o «Totale».
+     const previous=lines.slice(Math.max(0,i-1),i).join(' ');
+     const m=line.match(/\d{1,5}(?:[.,]\d{3})*[.,]\d{2}(?!\d)/g)||[];
+     for(const str of m){
+       const cents=parsePrice(str);if(cents===null||cents>99999999)continue;
+       let score=0;
+       if(/(?:importo|totale|da pagare|prezzo finale)/i.test(line+' '+previous))score+=10;
+       if(/(?:\bkg\b|\bgr\b|\bnetto\b|\bpeso\b|\beuro\/kg|\bkg\/)/i.test(line))score-=3;
+       if(/\b(?:quantit[aà]|lotto|codice)\b/i.test(line))score-=2;
+       if(/[€]/.test(line))score+=1;
+       if(!arr.some(v=>v.cents===cents))arr.push({cents,score});
+       else{const same=arr.find(v=>v.cents===cents);same.score=Math.max(same.score,score);}
+     }
+   });
+   return arr.sort((a,b)=>b.score-a.score).slice(0,15);
  }
  function suggestions(text){const values=extractPrices(text),target=$('prices');target.replaceChildren();
-   $('photo-status').textContent=values.length?'Tocca il prezzo corretto per inserirlo nel campo Prezzo.':'Nessun prezzo trovato. Puoi comunque scriverlo manualmente.';
-   for(const c of values){const b=document.createElement('button');b.type='button';b.className='price-chip';b.textContent=money(c);b.addEventListener('click',()=>{$('product-price').value=(c/100).toFixed(2).replace('.',',');$('product-name').focus();showToast('Prezzo inserito: completa il nome del prodotto');});target.append(b);}
+   if(values.length){
+     $('photo-status').textContent='Prezzi individuati. Tocca quello giusto per compilare il campo; controlla sempre l’etichetta originale.';
+   }else{
+     $('photo-status').textContent='Nessun importo riconosciuto. Tocca il numero del prezzo nella foto e premi di nuovo «Leggi il prezzo dalla foto».';
+   }
+   values.forEach((v,i)=>{const b=document.createElement('button');b.type='button';b.className='price-chip';b.textContent=(i===0&&v.score>=10?'Importo possibile: ':'')+money(v.cents);b.addEventListener('click',()=>{
+     $('product-price').value=(v.cents/100).toFixed(2).replace('.',',');
+     $('product-name').scrollIntoView({behavior:'smooth',block:'center'});
+     $('product-name').focus();showToast('Prezzo inserito. Scrivi il nome del prodotto.');
+   });target.append(b);});
+   return values;
  }
  $('find-prices').addEventListener('click',()=>suggestions($('scan-text').value));
- let photoFile=null;
- $('photo').addEventListener('change',()=>{
-   photoFile=$('photo').files?.[0]||null;$('recognize').disabled=!photoFile;$('prices').replaceChildren();
-   const image=$('preview');if(image.dataset.url){URL.revokeObjectURL(image.dataset.url);delete image.dataset.url;}
-   if(photoFile){image.dataset.url=URL.createObjectURL(photoFile);image.src=image.dataset.url;image.style.display='block';$('photo-status').textContent='Foto selezionata. Premi «Riconosci i prezzi nella foto».';}
-   else{image.removeAttribute('src');image.style.display='none';$('photo-status').textContent='';}
+ let photoFile=null, focusPoint=null, imgLoaded=false;
+ const focusWidth=.48,focusHeight=.30;
+ const preview=$('preview'), focus=$('focus-box');
+ function updateFocus(){
+   focus.hidden=!focusPoint;
+   if(!focusPoint)return;
+   const left=Math.min(1-focusWidth,Math.max(0,focusPoint.x-focusWidth/2));
+   const top=Math.min(1-focusHeight,Math.max(0,focusPoint.y-focusHeight/2));
+   focus.style.left=(left*100)+'%';focus.style.top=(top*100)+'%';
+   focus.style.width=(focusWidth*100)+'%';focus.style.height=(focusHeight*100)+'%';
+ }
+ preview.addEventListener('click',e=>{
+   if(!imgLoaded)return;const box=preview.getBoundingClientRect();
+   focusPoint={x:Math.min(1,Math.max(0,(e.clientX-box.left)/box.width)),y:Math.min(1,Math.max(0,(e.clientY-box.top)/box.height))};
+   updateFocus();$('photo-status').textContent='Zona evidenziata. Premi «Leggi il prezzo dalla foto» per analizzarla.';
  });
+ $('reset-focus').addEventListener('click',()=>{
+   focusPoint=null;updateFocus();$('photo-status').textContent='La prossima lettura analizzerà tutta la fotografia.';
+ });
+ $('photo').addEventListener('change',()=>{
+   photoFile=$('photo').files?.[0]||null;imgLoaded=false;focusPoint=null;updateFocus();
+   $('recognize').disabled=!photoFile;$('prices').replaceChildren();$('scan-text').value='';
+   if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url;}
+   $('preview-box').hidden=!photoFile;$('focus-help').hidden=!photoFile;$('reset-focus').hidden=!photoFile;
+   if(photoFile){
+     preview.dataset.url=URL.createObjectURL(photoFile);preview.src=preview.dataset.url;
+     $('photo-status').textContent='Foto selezionata. Puoi toccare il prezzo per selezionarlo, oppure leggere l’intera foto.';
+   }else{preview.removeAttribute('src');$('photo-status').textContent='';}
+ });
+ preview.addEventListener('load',()=>{imgLoaded=true;updateFocus();});
+ // Il ritaglio viene effettuato in memoria: la foto originale resta sul telefono.
+ function makeScanCanvas(mode){
+   const w=preview.naturalWidth,h=preview.naturalHeight;
+   let x=0,y=0,ww=w,hh=h;
+   if(mode==='selected'&&focusPoint){
+     ww=w*focusWidth;hh=h*focusHeight;
+     x=Math.max(0,Math.min(w-ww,focusPoint.x*w-ww/2));
+     y=Math.max(0,Math.min(h-hh,focusPoint.y*h-hh/2));
+   }else if(mode==='middle'){
+     x=w*.14;y=h*.20;ww=w*.72;hh=h*.65;
+   }
+   const longest=Math.max(ww,hh);
+   const scale=Math.min(3.0,2200/longest,1800/longest);
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.min(2400,Math.round(ww*scale));canvas.height=Math.min(2400,Math.round(hh*scale));
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});
+   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+   ctx.drawImage(preview,x,y,ww,hh,0,0,canvas.width,canvas.height);
+   // Contrasto moderato, utile per numeri stampati su etichette chiare.
+   const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+   const px=imageData.data;
+   for(let i=0;i<px.length;i+=4){
+     const gray=.299*px[i]+.587*px[i+1]+.114*px[i+2];
+     const v=Math.max(0,Math.min(255,(gray-128)*1.48+128));
+     px[i]=px[i+1]=px[i+2]=v;
+   }
+   ctx.putImageData(imageData,0,0);
+   return canvas;
+ }
  function loadTesseract(){return new Promise((resolve,reject)=>{
    if(window.Tesseract){resolve();return;}
-   const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';sc.onload=()=>window.Tesseract?resolve():reject(new Error('Libreria non disponibile'));sc.onerror=()=>reject(new Error('Connessione non disponibile'));document.head.append(sc);
+   const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+   sc.onload=()=>window.Tesseract?resolve():reject(new Error('Libreria non disponibile'));
+   sc.onerror=()=>reject(new Error('Connessione non disponibile'));document.head.append(sc);
  });}
  $('recognize').addEventListener('click',async()=>{
-   if(!photoFile)return;const b=$('recognize');b.disabled=true;b.textContent='Lettura in corso…';$('photo-status').textContent='Caricamento e lettura della foto. Potrebbe richiedere un po’ di tempo.';
+   if(!photoFile||!imgLoaded)return;
+   const b=$('recognize');b.disabled=true;b.textContent='Lettura in corso…';
+   $('photo-status').textContent='Sto analizzando i numeri dell’etichetta…';
    let worker;
    try{
      await loadTesseract();worker=await window.Tesseract.createWorker('ita');
-     const result=await worker.recognize(photoFile),text=result?.data?.text||'';
-     $('scan-text').value=text;suggestions(text);
-   }catch(e){$('photo-status').textContent='Non riesco a leggere questa foto. Verifica la connessione oppure usa «Testo attivo» dell’iPhone per copiare il prezzo e incollarlo qui.';}
-   finally{try{if(worker)await worker.terminate();}catch(e){}b.disabled=false;b.textContent='Riconosci i prezzi nella foto';}
+     await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+     const modes=focusPoint?['selected']:['full','middle'];
+     const texts=[];let candidates=[];
+     for(const mode of modes){
+       const canvas=makeScanCanvas(mode);
+       const result=await worker.recognize(canvas);
+       canvas.width=canvas.height=0;
+       const text=result?.data?.text||'';
+       texts.push(text);
+       candidates=extractPrices(texts.join('\n'));
+       if(candidates.length)break;
+       if(mode==='full')$('photo-status').textContent='Cerco i numeri nella parte centrale della foto…';
+     }
+     $('scan-text').value=texts.join('\n---\n').trim();
+     suggestions(texts.join('\n'));
+     if(!candidates.length && focusPoint){
+       $('photo-status').textContent='Non ho letto un importo in questa zona. Prova a toccare più vicino al numero, oppure inseriscilo manualmente.';
+     }
+   }catch(e){
+     $('photo-status').textContent='Lettura non riuscita. Controlla la connessione oppure usa «Testo attivo» dell’iPhone per copiare il prezzo e incollarlo qui.';
+   }finally{
+     try{if(worker)await worker.terminate();}catch(e){}
+     b.disabled=false;b.textContent='Leggi il prezzo dalla foto';
+   }
  });
  render();
  })();
