@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#142a49">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="La mia spesa">
+  <meta name="description" content="La mia spesa: prodotti, prezzi, sconti e lettura dei prezzi dalle foto.">
+  <title>La mia spesa</title>
+  <style>
+    :root{color-scheme:light;--ink:#172c47;--muted:#65778b;--bg:#f5f7fc;--card:#fff;--line:#e5eaf1;--blue:#3669e8;--blue2:#174cbd;--radius:22px}
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    html{font-size:16px;-webkit-text-size-adjust:100%}
+    body{margin:0;padding:env(safe-area-inset-top) 0 calc(38px + env(safe-area-inset-bottom));font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+    button,input,textarea{font:inherit} button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #95b5ff;outline-offset:2px}
+    .wrap{width:min(100% - 32px,560px);margin:0 auto}
+    .top{padding:26px 0 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .eyebrow{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#6c7c94;font-weight:800;margin:0 0 5px}
+    h1{font-size:30px;line-height:1.1;margin:0;letter-spacing:-.035em}
+    .little{font-size:12px;color:var(--muted);font-weight:600}
+    .logo{width:47px;height:47px;background:#e4ebff;border-radius:16px;display:grid;place-items:center;font-size:25px}
+    .summary{color:white;background:linear-gradient(137deg,#122a4e 0%,#1b4f9d 62%,#3c73e9 100%);border-radius:26px;padding:24px;box-shadow:0 13px 30px rgba(30,76,150,.18);position:relative;overflow:hidden}
+    .summary:after{content:"";width:180px;height:180px;border:1px solid rgba(255,255,255,.17);border-radius:100%;position:absolute;right:-80px;top:-70px;pointer-events:none}
+    .total-label{display:block;opacity:.82;font-weight:650;font-size:14px;margin-bottom:8px}
+    .total{font-size:46px;font-weight:800;letter-spacing:-.045em;line-height:1.15;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;border-top:1px solid rgba(255,255,255,.25);margin-top:23px;padding-top:17px}
+    .summary-grid span{display:block;opacity:.75;font-size:11px;margin-bottom:4px}
+    .summary-grid strong{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+    .section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-top:18px;padding:19px;box-shadow:0 6px 16px rgba(24,56,101,.035)}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px}
+    h2{font-size:19px;letter-spacing:-.02em;margin:0}
+    .hint{color:var(--muted);font-size:12px;line-height:1.5;margin:8px 0 0}
+    label{font-size:13px;font-weight:700;display:block;margin:0 0 8px}
+    .fields{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:11px}
+    input[type=text],input[type=number],textarea{width:100%;border:1.5px solid #dce3ed;border-radius:13px;background:#fbfcff;color:var(--ink);padding:14px 12px;min-height:49px;outline:none}
+    input:focus,textarea:focus{border-color:var(--blue);background:#fff}
+    input::placeholder,textarea::placeholder{color:#9ca9b7}
+    .primary{border:0;background:var(--blue);color:#fff;border-radius:14px;padding:14px 18px;font-weight:780;min-height:49px;width:100%;box-shadow:0 4px 11px rgba(39,90,204,.17)}
+    .primary:active{background:var(--blue2)}
+    .secondary{border:1px solid var(--line);border-radius:12px;color:var(--ink);background:#f7f9fe;padding:11px 13px;font-weight:700;min-height:42px}
+    .small-btn{background:transparent;border:0;color:var(--blue2);font-size:13px;font-weight:750;padding:8px}
+    .form-row{display:flex;align-items:end;gap:11px;margin-top:12px}
+    .form-row .qty{width:95px;flex:none}.form-row .primary{flex:1}
+    .discount{display:flex;align-items:center;gap:12px}
+    .discount input[type=range]{flex:1;min-width:0;accent-color:var(--blue);height:28px}
+    .discount-number{position:relative;width:90px;flex:none}
+    .discount-number input{padding-right:28px;text-align:center;font-weight:750}
+    .discount-number::after{content:"%";position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none}
+    .items{list-style:none;margin:0;padding:0}
+    .item{display:flex;align-items:center;gap:11px;padding:13px 0;border-top:1px solid var(--line)}
+    .item:first-child{border-top:0}
+    .item-main{flex:1;min-width:0}
+    .item-name{font-weight:740;font-size:15px;overflow-wrap:anywhere}
+    .item-price{color:var(--muted);font-size:12px;margin-top:5px}
+    .item-sum{font-size:15px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .qty-actions{display:flex;align-items:center;gap:5px;margin-top:8px}
+    .mini{border:1px solid #dce5f1;background:#f8faff;color:#2454ad;border-radius:10px;min-width:33px;min-height:32px;padding:3px 8px;font-weight:800}
+    .item-qty{color:var(--muted);font-size:12px;min-width:22px;text-align:center}
+    .trash{border:0;color:#b4545f;background:#fff1f2;border-radius:10px;width:34px;height:34px;font-size:18px}
+    .empty{text-align:center;padding:25px 7px;color:var(--muted);font-size:14px;line-height:1.5}
+    .empty-symbol{font-size:35px;margin-bottom:5px}
+    .tools{display:flex;gap:8px;justify-content:space-between;margin-top:12px;flex-wrap:wrap}
+    .camera-zone{border:1.5px dashed #b9cae6;border-radius:17px;background:#f8fbff;padding:16px;text-align:center}
+    .camera-zone p{font-size:13px;color:var(--muted);margin:9px 0 13px;line-height:1.5}
+    .camera-input{display:none}
+    .camera-label{display:inline-block;margin:0;background:#e7eeff;color:#1b4fa7;border:1px solid #c5d7fa;padding:13px 19px;border-radius:13px;min-height:46px;font-weight:800;font-size:14px;cursor:pointer}
+    #preview{display:none;max-width:100%;max-height:220px;object-fit:contain;margin:12px auto;border-radius:12px}
+    .step-label{margin:15px 0 8px;display:block}
+    textarea{min-height:78px;resize:vertical;font-size:14px;line-height:1.5}
+    .prices{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+    .price-chip{border:1px solid #a9c5fb;color:#1d58be;border-radius:999px;padding:9px 14px;background:#edf4ff;font-weight:800}
+    .status{font-size:13px;color:#56708b;line-height:1.45;margin:10px 0 0}
+    .footer{text-align:center;color:#7f8da2;margin:20px 8px;font-size:12px;line-height:1.5}
+    .toast{position:fixed;z-index:8;bottom:calc(16px + env(safe-area-inset-bottom));left:50%;transform:translate(-50%,15px);width:max-content;max-width:calc(100% - 24px);padding:12px 17px;color:#fff;background:#20324a;border-radius:14px;box-shadow:0 8px 20px #0003;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:370px){.wrap{width:calc(100% - 22px)}.summary{padding:20px}.total{font-size:39px}.fields{grid-template-columns:minmax(0,1fr) 100px}.section{padding:15px}.summary-grid{gap:4px}.summary-grid strong{font-size:13px}}
+    @media(prefers-reduced-motion:reduce){.toast{transition:none}}
+  </style>
+</head>
+<body>
+ <main class="wrap">
+  <header class="top">
+   <div><p class="eyebrow">La mia lista intelligente</p><h1>La mia spesa</h1></div>
+   <div class="logo" aria-hidden="true">🛒</div>
+  </header>
+  <section class="summary" aria-label="Riepilogo spesa">
+   <span class="total-label">Totale da pagare</span><div class="total" id="total">0,00 €</div>
+   <div class="summary-grid">
+    <div><span>Subtotale</span><strong id="subtotal">0,00 €</strong></div>
+    <div><span>Risparmio</span><strong id="saving">0,00 €</strong></div>
+    <div><span>Prodotti</span><strong id="count">0</strong></div>
+   </div>
+  </section>
+  <section class="section" aria-labelledby="add-title">
+   <div class="section-head"><h2 id="add-title">＋ Aggiungi prodotto</h2></div>
+   <form id="product-form" autocomplete="off">
+    <div class="fields">
+     <div><label for="product-name">Nome prodotto</label><input type="text" id="product-name" placeholder="Es. Pane" maxlength="90" required></div>
+     <div><label for="product-price">Prezzo (€)</label><input type="text" id="product-price" inputmode="decimal" placeholder="2,50" required></div>
+    </div>
+    <div class="form-row"><div class="qty"><label for="product-qty">Quantità</label><input type="number" id="product-qty" min="1" max="999" step="1" value="1" required></div><button class="primary" type="submit">Aggiungi alla lista</button></div>
+   </form>
+  </section>
+  <section class="section" aria-labelledby="discount-title">
+   <div class="section-head"><h2 id="discount-title">🏷️ Sconto sulla spesa</h2></div>
+   <div class="discount"><input aria-label="Regola percentuale di sconto" id="discount-slider" type="range" min="0" max="100" step="1" value="0"><div class="discount-number"><input aria-label="Sconto percentuale" id="discount-number" type="number" inputmode="numeric" min="0" max="100" step="1" value="0"></div></div>
+   <p class="hint">Lo sconto si applica al totale di tutti i prodotti.</p>
+  </section>
+  <section class="section" aria-labelledby="list-title">
+   <div class="section-head"><h2 id="list-title">🧾 La lista</h2><span class="little" id="line-count">0 voci</span></div>
+   <ul class="items" id="items"></ul>
+   <div id="empty" class="empty"><div class="empty-symbol" aria-hidden="true">🛍️</div>La tua lista è vuota.<br>Aggiungi il primo prodotto!</div>
+   <div class="tools" id="list-tools" hidden><button class="secondary" type="button" id="export">Esporta lista</button><button class="small-btn" type="button" id="clear">Svuota lista</button></div>
+  </section>
+  <section class="section" aria-labelledby="photo-title">
+   <div class="section-head"><h2 id="photo-title">📷 Leggi il prezzo da una foto</h2></div>
+   <div class="camera-zone">
+    <span aria-hidden="true" style="font-size:31px">📸</span>
+    <p>Fotografa un cartellino o scegli una foto. L'app proverà a riconoscere il prezzo scritto.</p>
+    <label for="photo" class="camera-label">Scatta o scegli foto</label>
+    <input id="photo" class="camera-input" type="file" accept="image/*">
+    <img id="preview" alt="Foto del prezzo selezionata">
+   </div>
+   <button class="primary" style="margin-top:12px" type="button" id="recognize" disabled>Riconosci i prezzi nella foto</button>
+   <p class="hint">La prima volta serve internet per caricare il riconoscimento testo. L'analisi avviene nel browser del telefono. Controlla sempre il prezzo riconosciuto.</p>
+   <label for="scan-text" class="step-label">Oppure incolla qui un prezzo o del testo</label>
+   <textarea id="scan-text" placeholder="Esempio: LATTE INTERO 1,79 €"></textarea>
+   <button class="secondary" style="margin-top:9px;width:100%" type="button" id="find-prices">Trova i prezzi nel testo</button>
+   <p class="status" id="photo-status" role="status" aria-live="polite"></p>
+   <div class="prices" id="prices" aria-label="Prezzi riconosciuti"></div>
+  </section>
+  <p class="footer">I prodotti e lo sconto restano salvati su questo dispositivo e in questo browser. Nessun account o pagamento necessario.</p>
+ </main>
+ <div class="toast" id="toast" role="status" aria-live="polite"></div>
+ <script>
+ (()=>{'use strict';
+ const $=id=>document.getElementById(id);
+ const money=c=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(c/100);
+ const KEY='la-mia-spesa-dati-v1';
+ let state={items:[],discount:0};let saved=false;
+ try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items)){
+   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty)}));
+   state.discount=Number.isFinite(d.discount)?Math.max(0,Math.min(100,Math.round(d.discount))):0;
+ }}catch(e){}
+ function save(){try{localStorage.setItem(KEY,JSON.stringify(state));saved=true;}catch(e){if(!saved){showToast('Salvataggio non disponibile in questo browser.');saved=true;}}}
+ function parsePrice(value){
+   let s=String(value??'').trim().replace(/[€\s]/g,'').replace(/[^0-9,.]/g,'');
+   if(!s)return null;
+   const comma=s.lastIndexOf(','), dot=s.lastIndexOf('.');
+   if(comma>=0&&dot>=0){const sep=comma>dot?',':'.';s=s.replace(sep===','?/\./g:/,/g,'').replace(sep,'.');}
+   else if(comma>=0)s=s.replace(',','.');
+   const n=Number(s);if(!Number.isFinite(n)||n<0||n>999999)return null;
+   return Math.round(n*100);
+ }
+ let toastTimer;
+ function showToast(s){const t=$('toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
+ function render(){
+   const s=state.items.reduce((n,x)=>n+x.cents*x.qty,0);
+   const saving=Math.round(s*state.discount/100);
+   $('total').textContent=money(s-saving);$('subtotal').textContent=money(s);$('saving').textContent=money(saving);
+   $('count').textContent=state.items.reduce((n,x)=>n+x.qty,0);
+   $('line-count').textContent=state.items.length===1?'1 voce':state.items.length+' voci';
+   $('discount-slider').value=state.discount;$('discount-number').value=state.discount;
+   $('empty').hidden=state.items.length>0;$('list-tools').hidden=state.items.length===0;
+   $('items').replaceChildren();
+   for(const x of state.items){
+     const li=document.createElement('li');li.className='item';
+     const main=document.createElement('div');main.className='item-main';
+     const nm=document.createElement('div');nm.className='item-name';nm.textContent=x.name;
+     const pr=document.createElement('div');pr.className='item-price';pr.textContent=money(x.cents)+' ciascuno';
+     const controls=document.createElement('div');controls.className='qty-actions';
+     function btn(txt,action,aria){const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=txt;b.setAttribute('aria-label',aria);b.addEventListener('click',action);return b;}
+     controls.append(btn('−',()=>adjust(x.id,-1),'Diminuisci quantità '+x.name));
+     const qty=document.createElement('span');qty.className='item-qty';qty.textContent=x.qty;controls.append(qty);
+     controls.append(btn('+',()=>adjust(x.id,1),'Aumenta quantità '+x.name));
+     controls.append(btn('✎',()=>edit(x.id),'Modifica '+x.name));
+     main.append(nm,pr,controls);
+     const subtotal=document.createElement('div');subtotal.className='item-sum';subtotal.textContent=money(x.cents*x.qty);
+     const del=document.createElement('button');del.type='button';del.className='trash';del.textContent='×';del.setAttribute('aria-label','Elimina '+x.name);
+     del.addEventListener('click',()=>{state.items=state.items.filter(y=>y.id!==x.id);save();render();showToast('Prodotto eliminato');});
+     li.append(main,subtotal,del);$('items').append(li);
+   }
+ }
+ function adjust(id,delta){const x=state.items.find(x=>x.id===id);if(!x)return;x.qty=Math.max(1,Math.min(999,x.qty+delta));save();render();}
+ function edit(id){const x=state.items.find(x=>x.id===id);if(!x)return;
+   const name=prompt('Nome del prodotto',x.name);if(name===null)return;if(!name.trim()){showToast('Inserisci un nome');return;}
+   const price=prompt('Prezzo del prodotto in euro',String((x.cents/100).toFixed(2)).replace('.',','));if(price===null)return;
+   const cents=parsePrice(price);if(cents===null){showToast('Prezzo non valido');return;}
+   x.name=name.trim().slice(0,90);x.cents=cents;save();render();showToast('Prodotto modificato');
+ }
+ $('product-form').addEventListener('submit',e=>{
+   e.preventDefault();const name=$('product-name').value.trim(),cents=parsePrice($('product-price').value),qty=Number($('product-qty').value);
+   if(!name){showToast('Inserisci il nome del prodotto');return;}
+   if(cents===null){showToast('Inserisci un prezzo valido, es. 2,50');return;}
+   if(!Number.isInteger(qty)||qty<1||qty>999){showToast('Quantità valida: da 1 a 999');return;}
+   state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name,cents,qty});save();render();
+   $('product-name').value='';$('product-price').value='';$('product-qty').value='1';$('product-name').focus();showToast('Aggiunto alla lista');
+ });
+ function setDiscount(v){const n=Number(v);state.discount=Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):0;save();render();}
+ $('discount-slider').addEventListener('input',e=>setDiscount(e.target.value));
+ $('discount-number').addEventListener('input',e=>{if(e.target.value!=='')setDiscount(e.target.value);});
+ $('discount-number').addEventListener('change',()=>setDiscount($('discount-number').value));
+ $('clear').addEventListener('click',()=>{if(confirm('Vuoi davvero eliminare tutti i prodotti?')){state.items=[];save();render();showToast('Lista svuotata');}});
+ $('export').addEventListener('click',()=>{
+   const esc=v=>'"'+String(v).replace(/"/g,'""')+'"';
+   const lines=['Prodotto;Prezzo unitario (EUR);Quantita;Totale (EUR)',...state.items.map(x=>[esc(x.name),(x.cents/100).toFixed(2).replace('.',','),x.qty,(x.cents*x.qty/100).toFixed(2).replace('.',',')].join(';'))];
+   const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='la-mia-spesa.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);showToast('Lista esportata');
+ });
+ function extractPrices(text){
+   const matches=String(text).match(/(?:€\s*)?\d{1,5}(?:[.,]\d{3})*[.,]\d{2}(?:\s*€)?/g)||[];
+   const arr=[];for(const m of matches){const c=parsePrice(m);if(c!==null&&c<=99999999&&!arr.includes(c))arr.push(c);}return arr.slice(0,30);
+ }
+ function suggestions(text){const values=extractPrices(text),target=$('prices');target.replaceChildren();
+   $('photo-status').textContent=values.length?'Tocca il prezzo corretto per inserirlo nel campo Prezzo.':'Nessun prezzo trovato. Puoi comunque scriverlo manualmente.';
+   for(const c of values){const b=document.createElement('button');b.type='button';b.className='price-chip';b.textContent=money(c);b.addEventListener('click',()=>{$('product-price').value=(c/100).toFixed(2).replace('.',',');$('product-name').focus();showToast('Prezzo inserito: completa il nome del prodotto');});target.append(b);}
+ }
+ $('find-prices').addEventListener('click',()=>suggestions($('scan-text').value));
+ let photoFile=null;
+ $('photo').addEventListener('change',()=>{
+   photoFile=$('photo').files?.[0]||null;$('recognize').disabled=!photoFile;$('prices').replaceChildren();
+   const image=$('preview');if(image.dataset.url){URL.revokeObjectURL(image.dataset.url);delete image.dataset.url;}
+   if(photoFile){image.dataset.url=URL.createObjectURL(photoFile);image.src=image.dataset.url;image.style.display='block';$('photo-status').textContent='Foto selezionata. Premi «Riconosci i prezzi nella foto».';}
+   else{image.removeAttribute('src');image.style.display='none';$('photo-status').textContent='';}
+ });
+ function loadTesseract(){return new Promise((resolve,reject)=>{
+   if(window.Tesseract){resolve();return;}
+   const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';sc.onload=()=>window.Tesseract?resolve():reject(new Error('Libreria non disponibile'));sc.onerror=()=>reject(new Error('Connessione non disponibile'));document.head.append(sc);
+ });}
+ $('recognize').addEventListener('click',async()=>{
+   if(!photoFile)return;const b=$('recognize');b.disabled=true;b.textContent='Lettura in corso…';$('photo-status').textContent='Caricamento e lettura della foto. Potrebbe richiedere un po’ di tempo.';
+   let worker;
+   try{
+     await loadTesseract();worker=await window.Tesseract.createWorker('ita');
+     const result=await worker.recognize(photoFile),text=result?.data?.text||'';
+     $('scan-text').value=text;suggestions(text);
+   }catch(e){$('photo-status').textContent='Non riesco a leggere questa foto. Verifica la connessione oppure usa «Testo attivo» dell’iPhone per copiare il prezzo e incollarlo qui.';}
+   finally{try{if(worker)await worker.terminate();}catch(e){}b.disabled=false;b.textContent='Riconosci i prezzi nella foto';}
+ });
+ render();
+ })();
+ </script>
+</body>
+</html>
