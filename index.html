@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="La mia spesa">
-  <meta name="description" content="La mia spesa: scanner cartellini, scontrini separati, prezzi e sconti, confronto totale e carrello.">
+  <meta name="description" content="La mia spesa: scanner cartellini, scontrini con verifica doppioni, prezzi e sconti, confronto totale e carrello.">
   <title>La mia spesa</title>
   <style>
     :root{color-scheme:light;--ink:#172c47;--muted:#65778b;--bg:#f5f7fc;--card:#fff;--line:#e5eaf1;--blue:#3669e8;--blue2:#174cbd;--radius:22px}
@@ -204,9 +204,9 @@
   </section>
 
   <section class="section receipt-section" aria-labelledby="receipt-title" id="receipt-section">
-   <div class="section-head"><h2 id="receipt-title">🧾 Controlla uno scontrino</h2><span class="live-tag">NUOVO</span></div>
+   <div class="section-head"><h2 id="receipt-title">🧾 Controlla uno scontrino</h2><span class="live-tag">MIGLIORATO</span></div>
    <p class="hint">Questa modalità cerca <strong>tutte le righe dello scontrino</strong>, separandole dal totale finale. <strong>Non aggiunge nulla automaticamente.</strong> Ti propone una lista da verificare e confronta la somma con il totale stampato.</p>
-   <div class="receipt-howto"><strong>Per scontrini lunghi:</strong> scatta la parte alta, poi quella centrale, infine quella bassa, <strong>una fotografia per volta</strong>. Avvicina il telefono finché il testo riempie la foto. L’app unirà le letture; puoi usare anche una foto singola se lo scontrino è corto. Inquadra una piccola sovrapposizione per non saltare righe.</div>
+   <div class="receipt-howto"><strong>Per scontrini lunghi:</strong> scatta la parte alta, poi quella centrale, infine quella bassa, <strong>una fotografia per volta</strong>. Avvicina il telefono finché il testo riempie la foto. L’app unirà le letture e segnalerà i possibili doppioni. Fotografa <strong>6–8 righe per volta</strong>, con una piccola sovrapposizione. Se lo scontrino è corto puoi usare una sola foto.</div>
    <div class="receipt-zone" style="margin-top:13px">
     <div class="camera-zone">
      <label class="camera-label" for="receipt-photo">📸 Scatta o scegli una parte dello scontrino</label>
@@ -226,9 +226,9 @@
      <div><span>Totale stampato sullo scontrino</span><strong id="receipt-grand-total">—</strong></div>
      <div><span>Carrello attuale</span><strong id="receipt-cart-total">—</strong></div>
     </div>
-    <div class="receipt-total-edit"><label for="receipt-total-edit">Totale finale dello scontrino (€) · correggi se non viene letto</label><input id="receipt-total-edit" type="text" inputmode="decimal" placeholder="Es. 68,13" autocomplete="off"><small>Puoi scrivere qui il totale stampato anche se la fotografia non viene riconosciuta. Questo importo serve solo al confronto: non sarà mai aggiunto come prodotto.</small></div>
+    <div class="receipt-total-edit"><label for="receipt-total-edit">Totale finale dello scontrino (€) · correggi se non viene letto</label><input id="receipt-total-edit" type="text" inputmode="decimal" placeholder="Es. 68,13" autocomplete="off"><small>Puoi scrivere qui il totale stampato anche se la fotografia non viene riconosciuta. Questo importo serve solo al confronto: non sarà mai aggiunto come prodotto.</small><label class="camera-label" for="receipt-total-photo" style="margin-top:10px">📷 Oppure fotografa da vicino solo la riga del TOTALE</label><input class="camera-input" id="receipt-total-photo" type="file" accept="image/*"><small id="receipt-total-photo-status" role="status">Questa foto serve soltanto a leggere il totale: non modifica l’elenco dei prodotti.</small></div>
     <p id="receipt-compare" class="receipt-alert"></p>
-    <p class="hint">Verifica che non manchino prodotti. Correggi nomi, prezzi finali e quantità. Sconti e pagamenti non sono prodotti; il riconoscimento può omettere o duplicare righe se la foto è sfocata.</p>
+    <p class="hint">Verifica che non manchino prodotti. Per i prodotti a peso controlla il prezzo finale della riga; per confezioni multiple verifica anche la quantità. Eventuali voci duplicate vengono evidenziate e non selezionate automaticamente. Sconti e pagamenti non sono prodotti.</p>
     <div id="receipt-lines"></div>
     <p id="receipt-sum" class="receipt-alert" aria-live="polite"></p>
     <label class="receipt-check" for="receipt-checked"><input id="receipt-checked" type="checkbox"><span>Ho verificato le righe e voglio aggiungerle al carrello. So che eventuali prodotti già presenti potrebbero essere duplicati.</span></label>
@@ -742,18 +742,19 @@
  try{const old=JSON.parse(localStorage.getItem(RECEIPT_KEY));if(Array.isArray(old))receiptImports=old.filter(x=>typeof x==='string').slice(-30);}catch(e){}
  function receiptLines(text){return String(text||'').replace(/\r/g,'').split('\n').map(x=>x.replace(/[\u00a0\t]+/g,' ').trim()).filter(Boolean);}
  function receiptTotalMarker(line){
-   const s=String(line||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-   if(/\b(?:totale\s+(?:sconto|risparmi|risparmio|iva|imponibile|punti|articoli|pezzi)|iva\s+totale)\b/i.test(s))return false;
-   // "TOTALE COMPLESSIVO" può risultare con qualche lettera imprecisa nell'OCR.
-   return /(?:^|\s)(?:totale|t0tale|tot\.?\s*(?:complessivo|da\s+pagare|euro|eur)?|importo\s+(?:totale|dovuto)|da\s+pagare)\b/i.test(s);
+   const s=String(line||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/0/g,'O').replace(/[|!]/g,'I');
+   if(/\b(?:TOTALE\s+(?:SCONTO|RISPARMI|RISPARMIO|IVA|IMPONIBILE|PUNTI|ARTICOLI|PEZZI)|IVA\s+TOTALE)\b/.test(s))return false;
+   // Tolleranza ai consueti errori OCR e alla dicitura dei registratori italiani.
+   return /(?:^|\s)(?:TOTALE|TOT[. ]*(?:COMPLES|DA\s+PAGARE|EURO|EUR)?|IMPORTO\s+(?:TOTALE|DOVUTO)|DA\s+PAGARE)\b/.test(s)
+     ||/\b(?:COMPLESSIVO|COMPLES[S5]IVO)\b/.test(s);
  }
  function receiptAmountAfterLabel(lines,index){
-   // Il riconoscimento può separare la scritta TOTALE e il suo importo su righe differenti.
+   // Alcuni OCR separano il numero del totale dalla sua descrizione.
    for(let offset=1;offset<=2 && index+offset<lines.length;offset++){
      const line=lines[index+offset].trim();
-     if(!/^(?:[€:]\s*)?\d{1,6}[.,]\d{2}\s*(?:€|EUR)?$/i.test(line))break;
      const found=receiptMoneyTokens(line);
-     if(found.length)return found[found.length-1].cents;
+     if(found.length===1 && (line.length<=25||/^(?:EURO|EUR|\s|[:€])*[\d.,]+/i.test(line)))return found[0].cents;
+     if(/[A-Za-zÀ-ÿ]{4,}/.test(line))break;
    }
    return null;
  }
@@ -783,6 +784,12 @@
    return candidate.length>=3&&candidate.length<=85&&/[A-Za-zÀ-ÿ]{3,}/.test(candidate)&&!receiptSkipLine(candidate)
     &&!/^(?:EURO|EUR|KG|QTA|PZ|PRODOTTO|IMPORTO|TOT|TOTALE|CONFEZIONE|SOMMA|PREZZO)$/i.test(candidate);
  }
+ function cleanReceiptName(name){
+   return String(name||'').replace(/^\s*(?:M\s*[-–]\s*T|TT?|X)\s+/i,'')
+     .replace(/(?:\s+|^)[%‰]+(?:\s+|$)/g,' ')
+     .replace(/\b(?:4|10|22)[,.]00\s*%?\s*$/,'')
+     .replace(/[\s*:;|.,#%\-]+$/g,'').replace(/\s+/g,' ').trim();
+ }
  function parseReceipt(text){
    const lines=receiptLines(text),rows=[],notes=[];
    let receiptTotal=null,totalScore=-1,pendingName='',discountLines=0,ambiguousRows=0,afterTotal=false;
@@ -795,7 +802,6 @@
        if(amount!==null && score>=totalScore){receiptTotal=amount;totalScore=score;}
        pendingName='';continue;
      }
-     // Non confondere i dettagli del POS, del pagamento e dei punti con prodotti.
      if(afterTotal)continue;
      if(/\b(?:SCONTO|RISPARMIO|COUPON|PROMOZIONE|BUONO\s+SCONTO)\b/i.test(line)&&tokens.length){discountLines++;pendingName='';continue;}
      if(receiptSkipLine(line)){pendingName='';continue;}
@@ -803,26 +809,45 @@
        if(receiptGoodName(line)&&!/[€%]/.test(line))pendingName=line.slice(0,75);
        continue;
      }
-     const last=tokens[tokens.length-1];
+     let last=tokens[tokens.length-1];
+     // Un'aliquota IVA (4,00%, 10,00%, 22,00%) talvolta viene letta senza il segno %.
+     // Se il vero importo è stato spostato dall'OCR alla riga successiva, recuperalo.
+     let guessedTax=false;
+     if(tokens.length===1 && [400,1000,2200].includes(last.cents) && i+1<lines.length){
+       const next=lines[i+1].trim(),nextTokens=receiptMoneyTokens(next);
+       if(nextTokens.length===1 && /^[\s€:]*\d{1,6}[,.]\d{2}[\s€]*$/.test(next)){
+         last={...nextTokens[0],index:line.length,fromNext:true};i++;guessedTax=true;
+       } else guessedTax=true;
+     }
      if(last.cents===0)continue;
      const prefix=line.slice(0,last.index).trim();
      const rawName=prefix.replace(/(?:\b\d{1,3}\s*[xX×]\s*\d+[,.]\d{2}\b)|(?:\b(?:KG|PZ|QTA|QTÀ)\s*[:=]?\s*\d+(?:[,.]\d+)?)|(?:\b\d{1,6}[,.]\d{2}\b)|(?:\b\d{10,13}\b)/gi,' ').replace(/^[\d*#.\s]+/,'').replace(/[\s*#:.-]+$/,'').replace(/\s+/g,' ').trim();
-     let name=rawName;
-     if(!receiptGoodName(name)&&pendingName&&receiptGoodName(pendingName))name=pendingName;
+     let name=cleanReceiptName(rawName);
+     if(!receiptGoodName(name)&&pendingName&&receiptGoodName(pendingName))name=cleanReceiptName(pendingName);
      pendingName='';
      if(!receiptGoodName(name))continue;
      const q=/\b(\d{1,2})\s*[xX×]\s*(?:\d{1,5}[,.]\d{2})/.exec(prefix);
      const qty=q?Number(q[1]):1;
      if(!Number.isInteger(qty)||qty<1||qty>50)continue;
      const unitCents=Math.round(last.cents/qty),reconstructed=unitCents*qty;
-     const uncertain=(tokens.length>1&&!q)||reconstructed!==last.cents||/\b(?:KG|ETTO|\/\s*KG|\/\s*PZ|PESO)\b/i.test(line);
+     const uncertain=(tokens.length>1&&!q)||reconstructed!==last.cents||/\b(?:KG|ETTO|\/\s*KG|\/\s*PZ|PESO)\b/i.test(line)||guessedTax;
      if(uncertain)ambiguousRows++;
      rows.push({name:name.slice(0,85),cents:unitCents,qty,selected:true,uncertain,origin:line});
-     if(rows.length===80){notes.push('Troppe righe rilevate: le successive non sono state importate nella proposta.');break;}
+     if(rows.length===80){notes.push('Troppe righe rilevate: le successive non sono state incluse nella proposta.');break;}
    }
+   // Non sommare per errore due letture della STESSA riga riconosciuta in foto sovrapposte.
+   // Un vero acquisto ripetuto è possibile: la seconda riga rimane visibile e selezionabile.
+   const seen=new Map();let suspectDuplicates=0;
+   for(const row of rows){
+     const nameKey=plain(row.name).replace(/^(?:M T|T)\s+/,''),key=nameKey+'|'+row.cents+'|'+row.qty;
+     if(seen.has(key)){
+       row.possibleDuplicate=true;row.uncertain=true;row.selected=false;suspectDuplicates++;
+     }else seen.set(key,true);
+   }
+   if(suspectDuplicates)notes.push(suspectDuplicates+' possibili doppioni: la seconda copia è deselezionata. Se hai comprato due pezzi separati, puoi selezionarla.');
    if(discountLines)notes.push('Sono presenti '+discountLines+' righe di sconto o buoni: controlla i prezzi finali e la differenza con il totale.');
-   if(ambiguousRows)notes.push(ambiguousRows+' righe con quantità, peso o prezzi multipli da controllare.');
-   if(receiptTotal===null)notes.push('Totale finale non identificato: fotografa anche la parte bassa dello scontrino.');
+   if(ambiguousRows)notes.push(ambiguousRows+' righe con IVA, peso, quantità o prezzi multipli da controllare.');
+   if(receiptTotal===null)notes.push('Totale finale non identificato: scrivilo nell’apposito campo oppure fotografa da vicino soltanto la riga del totale.');
    if(!rows.length)notes.push('Non riesco a separare le righe dei prodotti: nessun import automatico.');
    return {rows,totalCents:receiptTotal,notes,source:text,fingerprint:receiptFingerprint(text)};
  }
@@ -874,17 +899,17 @@
      const wrapper=document.createElement('div');wrapper.className='receipt-row';
      const heading=document.createElement('div');heading.className='receipt-row-title';
      const ck=document.createElement('input');ck.type='checkbox';ck.checked=row.selected;ck.id='receipt-select-'+i;
-     const title=document.createElement('label');title.htmlFor=ck.id;title.textContent='Riga '+(i+1)+(row.uncertain?' · da verificare':'');
+     const title=document.createElement('label');title.htmlFor=ck.id;title.textContent='Riga '+(i+1)+(row.possibleDuplicate?' · POSSIBILE DOPPIONE (non selezionato)':row.uncertain?' · da verificare':'');
      ck.addEventListener('change',()=>{row.selected=ck.checked;renderReceiptComparison();});heading.append(ck,title);
      const fields=document.createElement('div');fields.className='receipt-fields';
      for(const [label,value,change,type] of [
        ['Nome',row.name,v=>row.name=v.slice(0,85),'text'],
-       ['€ cad.',(row.cents/100).toFixed(2).replace('.',','),v=>{row.cents=parsePrice(v);},'text'],
+       ['Prezzo (€)',(row.cents/100).toFixed(2).replace('.',','),v=>{row.cents=parsePrice(v);},'text'],
        ['Qtà',String(row.qty),v=>row.qty=Number(v),'number']]){
        const box=document.createElement('div'),caption=document.createElement('label'),input=document.createElement('input');
        caption.textContent=label;caption.htmlFor='receipt-cell-'+i+'-'+label;
        input.id=caption.htmlFor;input.type=type;input.value=value;input.setAttribute('aria-label',label+' riga '+(i+1));
-       if(label==='€ cad.')input.inputMode='decimal';
+       if(label==='Prezzo (€)')input.inputMode='decimal';
        if(label==='Qtà'){input.min='1';input.max='999';input.step='1';}
        input.addEventListener('input',()=>{change(input.value);renderReceiptComparison();});
        box.append(caption,input);fields.append(box);
@@ -908,16 +933,25 @@
  }
  // Le parti di uno scontrino lungo vengono lette singolarmente: OCR su lettere più grandi.
  // In caso di sovrapposizione identica, le righe ripetute non vengono contate due volte.
+ function receiptNearSame(a,b){
+   const x=plain(a).replace(/\s+/g,''),y=plain(b).replace(/\s+/g,'');
+   if(x===y)return true;
+   if(Math.min(x.length,y.length)<8 || Math.abs(x.length-y.length)>Math.max(5,Math.ceil(Math.max(x.length,y.length)*.30)))return false;
+   let same=0;const n=Math.min(x.length,y.length);
+   for(let i=0;i<n;i++)if(x[i]===y[i])same++;
+   return same/Math.max(x.length,y.length)>.84;
+ }
  function mergeReceiptScans(parts){
-   let merged=[];
-   const key=line=>plain(line).replace(/\s+/g,' ');
+   const merged=[];
    for(const part of parts){
      const current=receiptLines(part);
-     let overlap=0;
-     const max=Math.min(14,merged.length,current.length);
-     for(let n=max;n>=1;n--){
-       if(merged.slice(-n).every((x,i)=>key(x)===key(current[i]))){overlap=n;break;}
+     if(!merged.length){merged.push(...current);continue;}
+     let overlap=0;const max=Math.min(22,merged.length,current.length);
+     for(let n=max;n>=2;n--){
+       if(merged.slice(-n).every((x,i)=>receiptNearSame(x,current[i]))){overlap=n;break;}
      }
+     // Singola riga a cavallo di due foto: ignora solo se coincide proprio con il confine.
+     if(!overlap&&merged.length&&current.length&&receiptNearSame(merged[merged.length-1],current[0]))overlap=1;
      merged.push(...current.slice(overlap));
    }
    return merged.join('\n');
@@ -1000,6 +1034,36 @@
    img.dataset.url=URL.createObjectURL(file);img.src=img.dataset.url;img.hidden=false;
    receiptStatus('Fotografia caricata: inizio a leggere questa parte…');
  }
+ let receiptTotalPhotoBusy=false;
+ $('receipt-total-photo').addEventListener('change',async()=>{
+   const file=$('receipt-total-photo').files?.[0];
+   $('receipt-total-photo').value='';
+   if(!file||receiptTotalPhotoBusy||!receiptDraft)return;
+   receiptTotalPhotoBusy=true;
+   const status=$('receipt-total-photo-status');status.textContent='Leggo soltanto la riga del totale…';
+   let worker=null,cv=null,im=null,url='';
+   try{
+     im=new Image();url=URL.createObjectURL(file);
+     await new Promise((resolve,reject)=>{im.onload=resolve;im.onerror=reject;im.src=url;});
+     cv=receiptCanvas(im);await loadTesseract();worker=await window.Tesseract.createWorker('ita');
+     await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+     const txt=((await worker.recognize(cv))?.data?.text||'').trim();
+     let total=parseReceipt(txt).totalCents;
+     // Ammessa una singola cifra se questa fotografia mostra ESCLUSIVAMENTE la riga totale.
+     if(total===null){const matches=receiptMoneyTokens(txt);if(matches.length===1)total=matches[0].cents;}
+     if(total!==null&&total>0){
+       receiptTotalEntered=true;receiptManualTotalCents=total;
+       $('receipt-total-edit').value=(total/100).toFixed(2).replace('.',',');
+       renderReceiptComparison();
+       status.textContent='Totale proposto dalla foto: '+money(total)+'. Verifica che corrisponda al tuo scontrino.';
+     }else status.textContent='Non riesco a leggerlo con sicurezza. Scrivi il totale nel campo qui sopra.';
+   }catch(e){status.textContent='Questa foto non è stata letta. Puoi inserire il totale a mano.';}
+   finally{
+     if(worker)try{await worker.terminate();}catch(e){}
+     if(cv){cv.width=cv.height=0;}if(url)URL.revokeObjectURL(url);
+     receiptTotalPhotoBusy=false;
+   }
+ });
  $('receipt-photo').addEventListener('change',()=>{
    const file=$('receipt-photo').files?.[0]||null;
    if(file)selectReceiptPhoto(file);
