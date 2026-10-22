@@ -107,6 +107,10 @@
     .receipt-totals>div{border-radius:12px;background:#eff4ff;padding:10px 12px}
     .receipt-totals span{display:block;font-size:11px;color:#536b88;font-weight:650;margin-bottom:3px}
     .receipt-totals strong{font-size:19px;font-variant-numeric:tabular-nums}
+    .receipt-total-edit{background:#f2f6ff;border:1.5px solid #bfd2f7;border-radius:14px;padding:12px 13px;margin:11px 0}
+    .receipt-total-edit label{margin-bottom:7px;font-size:13px;color:#264c86}
+    .receipt-total-edit input{background:#fff;font-size:18px;font-weight:760;min-height:46px}
+    .receipt-total-edit small{display:block;margin-top:7px;line-height:1.4;color:#536b88;font-size:11px}
     .receipt-row{padding:12px 0;border-top:1px solid #e5eaf1}
     .receipt-row-title{display:flex;align-items:center;gap:8px;margin-bottom:8px}
     .receipt-row-title label{font-size:12px;margin:0;flex:1}
@@ -222,6 +226,7 @@
      <div><span>Totale stampato sullo scontrino</span><strong id="receipt-grand-total">—</strong></div>
      <div><span>Carrello attuale</span><strong id="receipt-cart-total">—</strong></div>
     </div>
+    <div class="receipt-total-edit"><label for="receipt-total-edit">Totale finale dello scontrino (€) · correggi se non viene letto</label><input id="receipt-total-edit" type="text" inputmode="decimal" placeholder="Es. 68,13" autocomplete="off"><small>Puoi scrivere qui il totale stampato anche se la fotografia non viene riconosciuta. Questo importo serve solo al confronto: non sarà mai aggiunto come prodotto.</small></div>
     <p id="receipt-compare" class="receipt-alert"></p>
     <p class="hint">Verifica che non manchino prodotti. Correggi nomi, prezzi finali e quantità. Sconti e pagamenti non sono prodotti; il riconoscimento può omettere o duplicare righe se la foto è sfocata.</p>
     <div id="receipt-lines"></div>
@@ -731,13 +736,26 @@
  // --- Analisi scontrino separata e prudente: mai importare il totale come prodotto. ---
  const RECEIPT_KEY='la-mia-spesa-scontrini-controllati-v1';
  let receiptDraft=null,receiptTextSource='',receiptWorkerBusy=false,receiptFile=null;
+ let receiptTotalEntered=false,receiptManualTotalCents=null;
  let receiptScanParts=[],receiptScanKeys=[];
  let receiptImports=[];
  try{const old=JSON.parse(localStorage.getItem(RECEIPT_KEY));if(Array.isArray(old))receiptImports=old.filter(x=>typeof x==='string').slice(-30);}catch(e){}
  function receiptLines(text){return String(text||'').replace(/\r/g,'').split('\n').map(x=>x.replace(/[\u00a0\t]+/g,' ').trim()).filter(Boolean);}
  function receiptTotalMarker(line){
-   if(/\b(?:totale\s+(?:sconto|risparmi|risparmio|iva|imponibile|punti|articoli|pezzi)|iva\s+totale)\b/i.test(line))return false;
-   return /(?:^|\s)(?:totale(?:\s+(?:complessivo|documento|da\s+pagare|euro|eur|acquisti))?|tot\.?\s+(?:da\s+pagare|euro|eur)?|importo\s+(?:totale|dovuto)|da\s+pagare)\b/i.test(line);
+   const s=String(line||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+   if(/\b(?:totale\s+(?:sconto|risparmi|risparmio|iva|imponibile|punti|articoli|pezzi)|iva\s+totale)\b/i.test(s))return false;
+   // "TOTALE COMPLESSIVO" può risultare con qualche lettera imprecisa nell'OCR.
+   return /(?:^|\s)(?:totale|t0tale|tot\.?\s*(?:complessivo|da\s+pagare|euro|eur)?|importo\s+(?:totale|dovuto)|da\s+pagare)\b/i.test(s);
+ }
+ function receiptAmountAfterLabel(lines,index){
+   // Il riconoscimento può separare la scritta TOTALE e il suo importo su righe differenti.
+   for(let offset=1;offset<=2 && index+offset<lines.length;offset++){
+     const line=lines[index+offset].trim();
+     if(!/^(?:[€:]\s*)?\d{1,6}[.,]\d{2}\s*(?:€|EUR)?$/i.test(line))break;
+     const found=receiptMoneyTokens(line);
+     if(found.length)return found[found.length-1].cents;
+   }
+   return null;
  }
  function looksLikeReceipt(text){
    const lines=receiptLines(text);
@@ -751,6 +769,8 @@
  }
  function receiptMoneyTokens(line){
    return [...String(line).matchAll(/(?<![\d.,])\d{1,6}(?:[.,]\d{3})*[.,]\d{2}(?!\d)/g)]
+     // Gli scontrini spesso mostrano l'aliquota IVA "10,00%" prima del prezzo.
+     .filter(m=>!/^\s*%/.test(String(line).slice(m.index+m[0].length)))
      .map(m=>({raw:m[0],index:m.index,cents:parsePrice(m[0])})).filter(x=>x.cents!==null&&x.cents<=9999999);
  }
  function receiptSkipLine(line){
@@ -768,10 +788,11 @@
    let receiptTotal=null,totalScore=-1,pendingName='',discountLines=0,ambiguousRows=0,afterTotal=false;
    for(let i=0;i<lines.length;i++){
      const line=lines[i],tokens=receiptMoneyTokens(line);
-     if(receiptTotalMarker(line)&&tokens.length){
+     if(receiptTotalMarker(line)){
        afterTotal=true;
+       const amount=tokens.length?tokens[tokens.length-1].cents:receiptAmountAfterLabel(lines,i);
        const score=(/\b(?:TOTALE|TOT)\b/i.test(line)?30:15)+(/\b(?:DA\s+PAGARE|COMPLESSIVO|DOCUMENTO|EURO)\b/i.test(line)?15:0)+i/Math.max(lines.length,1);
-       if(score>=totalScore){receiptTotal=tokens[tokens.length-1].cents;totalScore=score;}
+       if(amount!==null && score>=totalScore){receiptTotal=amount;totalScore=score;}
        pendingName='';continue;
      }
      // Non confondere i dettagli del POS, del pagamento e dei punti con prodotti.
@@ -824,8 +845,8 @@
  function renderReceiptComparison(){
    if(!receiptDraft)return;
    const {items,errors}=selectedReceiptRows();
-   const sum=items.reduce((a,r)=>a+r.cents*r.qty,0),total=receiptDraft.totalCents;
-   $('receipt-grand-total').textContent=total===null?'Non letto':money(total);
+   const sum=items.reduce((a,r)=>a+r.cents*r.qty,0),total=receiptTotalEntered?receiptManualTotalCents:receiptDraft.totalCents;
+   $('receipt-grand-total').textContent=total===null?'Non letto':money(total)+(receiptTotalEntered?' (inserito da te)':'');
    $('receipt-cart-total').textContent=money(currentCartCents());
    const delta=total===null?null:currentCartCents()-total;
    $('receipt-compare').textContent=total===null?'Non posso confrontare il carrello senza il totale stampato.':
@@ -835,17 +856,18 @@
    const diff=total===null?null:sum-total;
    const exact=diff===0;
    const text='Somma dei prodotti selezionati: '+money(sum)+'. '+(total===null?'Totale scontrino non letto.':exact?'✓ La somma coincide con il totale dello scontrino.':'⚠️ Differenza rispetto allo scontrino: '+(diff>0?'+':'−')+money(Math.abs(diff))+'. Verifica prodotti e sconti.')+
-     (receiptDraft.notes.length?' '+receiptDraft.notes.join(' '):'')+
-     (errors?' ⚠️ Alcuni campi non sono validi.':'');
+     (receiptDraft.notes.length?' '+receiptDraft.notes.filter(x=>!(receiptTotalEntered&&x.startsWith('Totale finale non identificato'))).join(' '):'')+
+     (errors?' ⚠️ Alcuni campi non sono validi.':'')+(receiptTotalEntered&&receiptManualTotalCents===null?' ⚠️ Correggi il totale inserito a mano.':'');
    $('receipt-sum').textContent=text;
    $('receipt-sum').className='receipt-alert'+(exact&&errors===0&&!receiptDraft.notes.length?' good':' warn');
    const isDuplicate=receiptImports.includes(receiptDraft.fingerprint);
-   $('receipt-import').disabled=!$('receipt-checked').checked||errors>0||items.length===0||isDuplicate;
+   $('receipt-import').disabled=!$('receipt-checked').checked||errors>0||items.length===0||isDuplicate||(receiptTotalEntered&&receiptManualTotalCents===null);
    $('receipt-import').textContent=isDuplicate?'Scontrino già importato':'Importa '+items.length+' prodotti verificati';
  }
  function renderReceiptDraft(){
    if(!receiptDraft)return;
    $('receipt-review').hidden=false;
+   if(!receiptTotalEntered)$('receipt-total-edit').value=receiptDraft.totalCents===null?'':(receiptDraft.totalCents/100).toFixed(2).replace('.',',');
    $('receipt-checked').checked=false;
    const holder=$('receipt-lines');holder.replaceChildren();
    for(const [i,row] of receiptDraft.rows.entries()){
@@ -912,6 +934,19 @@
    const ctx=canvas.getContext('2d',{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
    ctx.drawImage(img,0,0,canvas.width,canvas.height);return canvas;
  }
+ function receiptTotalFocusCanvas(img){
+   const w=img.naturalWidth,h=img.naturalHeight,y=Math.floor(h*.35),regionH=h-y;
+   const scale=Math.min(2.8,2500/Math.max(1,w),2400/Math.max(1,regionH));
+   const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(w*scale));cv.height=Math.max(1,Math.round(regionH*scale));
+   const ctx=cv.getContext('2d',{willReadFrequently:true});
+   ctx.drawImage(img,0,y,w,regionH,0,0,cv.width,cv.height);
+   const data=ctx.getImageData(0,0,cv.width,cv.height);
+   for(let i=0;i<data.data.length;i+=4){
+     const v=Math.max(0,Math.min(255,((data.data[i]*.299+data.data[i+1]*.587+data.data[i+2]*.114)-128)*1.38+143));
+     data.data[i]=data.data[i+1]=data.data[i+2]=v;
+   }
+   ctx.putImageData(data,0,0);return cv;
+ }
  async function recognizeReceipt(){
    if(!receiptFile||receiptWorkerBusy)return;
    stopLive();receiptWorkerBusy=true;
@@ -926,7 +961,18 @@
      worker=await window.Tesseract.createWorker('ita');
      await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.AUTO,preserve_interword_spaces:'1'});
      const r=await worker.recognize(cv);
-     const txt=(r?.data?.text||'').trim();
+     let txt=(r?.data?.text||'').trim();
+     if(txt&&parseReceipt(txt).totalCents===null){
+       // Prova mirata nell'area in cui normalmente compare il totale: nessuna riga prodotto duplicata.
+       let totalCanvas=null;
+       try{
+         totalCanvas=receiptTotalFocusCanvas(img);
+         await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+         const extra=((await worker.recognize(totalCanvas))?.data?.text||'').trim();
+         const detected=parseReceipt(extra).totalCents;
+         if(detected!==null)txt+='\nTOTALE COMPLESSIVO '+(detected/100).toFixed(2).replace('.',',');
+       }catch(e){}finally{if(totalCanvas)totalCanvas.width=totalCanvas.height=0;}
+     }
      if(!txt){receiptStatus('Questa foto non è leggibile. Avvicina la fotocamera alla stampa e riprova: nessuna nuova parte è stata aggiunta.','warn');return;}
      const photoKey=[receiptFile.name,receiptFile.size,receiptFile.lastModified].join('|');
      const oldIndex=receiptScanKeys.indexOf(photoKey);
@@ -937,7 +983,7 @@
      handleReceiptText(all);
      updateReceiptCount();
      receiptStatus('✅ Parte '+(oldIndex>=0?oldIndex+1:receiptScanParts.length)+' letta. '+receiptDraft.rows.length+' possibili voci. '+
-       (receiptDraft.totalCents===null?'Ora fotografa anche il resto, soprattutto la parte con il totale.':'Controlla i prodotti e confronta il totale. Puoi aggiungere altre fotografie.'), 'good');
+       (receiptDraft.totalCents===null&&!receiptTotalEntered?'Se il totale è visibile ma non viene letto, inseriscilo nel campo «Totale finale dello scontrino».':'Controlla i prodotti e confronta il totale. Puoi aggiungere altre fotografie.'), 'good');
    }catch(e){receiptStatus('Lettura non riuscita. Riprova avvicinando il telefono o utilizza il testo riconosciuto da Foto.','warn');}
    finally{
      try{if(worker)await worker.terminate();}catch(e){}
@@ -965,6 +1011,7 @@
  $('receipt-reset').addEventListener('click',()=>{
    if(receiptWorkerBusy)return;
    receiptScanParts=[];receiptScanKeys=[];receiptFile=null;receiptTextSource='';receiptDraft=null;
+   receiptTotalEntered=false;receiptManualTotalCents=null;$('receipt-total-edit').value='';
    $('receipt-review').hidden=true;$('receipt-text').value='';$('receipt-retry').disabled=true;
    const img=$('receipt-preview');if(img.dataset.url){URL.revokeObjectURL(img.dataset.url);delete img.dataset.url;}
    img.hidden=true;img.removeAttribute('src');updateReceiptCount();
@@ -978,14 +1025,21 @@
    $('receipt-section').scrollIntoView({behavior:'smooth',block:'start'});
  });
  $('receipt-parse-text').addEventListener('click',()=>{stopLive();receiptScanParts=[];receiptScanKeys=[];handleReceiptText($('receipt-text').value);updateReceiptCount();});
+ $('receipt-total-edit').addEventListener('input',()=>{
+   const value=$('receipt-total-edit').value.trim();
+   receiptTotalEntered=!!value;
+   receiptManualTotalCents=value?parsePrice(value):null;
+   renderReceiptComparison();
+ });
  $('receipt-checked').addEventListener('change',renderReceiptComparison);
  $('receipt-import').addEventListener('click',()=>{
    if(!receiptDraft||!$('receipt-checked').checked)return;
    const {items,errors}=selectedReceiptRows();
    if(errors||!items.length||receiptImports.includes(receiptDraft.fingerprint))return;
    const sum=items.reduce((a,x)=>a+x.cents*x.qty,0);
-   if(receiptDraft.totalCents!==null&&sum!==receiptDraft.totalCents){
-     if(!confirm('La somma '+money(sum)+' non coincide con il totale '+money(receiptDraft.totalCents)+'. Hai controllato tutte le righe e vuoi importarle comunque?'))return;
+   const finalReceiptTotal=receiptTotalEntered?receiptManualTotalCents:receiptDraft.totalCents;
+   if(finalReceiptTotal!==null&&sum!==finalReceiptTotal){
+     if(!confirm('La somma '+money(sum)+' non coincide con il totale '+money(finalReceiptTotal)+'. Hai controllato tutte le righe e vuoi importarle comunque?'))return;
    }
    for(const x of items)state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:x.name.trim().slice(0,90),cents:x.cents,qty:x.qty,productDiscount:0,lockedFinal:true});
    save();render();
