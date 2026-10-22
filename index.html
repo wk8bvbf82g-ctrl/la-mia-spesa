@@ -200,6 +200,22 @@
     .general-warning{border:1px solid #edc592;color:#76461b;background:#fff2e1;padding:12px;margin-top:12px;border-radius:12px;font-size:13px;line-height:1.45}
     .general-warning button{border:1px solid #e2ac75;border-radius:9px;background:#fff;font-weight:750;padding:9px 10px;color:#78491f;margin-top:8px}
     @media(max-width:370px){.voice-review-grid{grid-template-columns:minmax(0,1fr) 100px}.voice-actions{grid-template-columns:1fr}}
+
+    /* Lettura codici a barre: separata dall'OCR e dalla lista, adatta all'iPhone. */
+    .barcode-section{border-color:#b1cafa;background:#fff}
+    #barcode-reader{margin:12px 0;border:2px dashed #aac3f1;border-radius:16px;overflow:hidden;background:#10213c;min-height:110px}
+    #barcode-reader:empty{display:none}
+    #barcode-reader video{max-width:100%!important;border-radius:13px}
+    .barcode-buttons{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin:10px 0}
+    .barcode-buttons button{min-height:52px}
+    .barcode-form{background:#eff4ff;border:1px solid #b8cef8;padding:13px;border-radius:15px;margin-top:13px}
+    .barcode-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(105px,35%);gap:10px}
+    .barcode-form input{background:white}
+    #barcode-status{font-size:13px;color:#36557e;line-height:1.5}
+    #barcode-code{font-weight:800;letter-spacing:.04em;overflow-wrap:anywhere}
+    .barcode-warn{background:#fff2df;color:#754f19;border-radius:11px;padding:10px;font-size:13px;line-height:1.5;margin:9px 0}
+    .barcode-quiet{font-size:12px;color:#66788e;line-height:1.5}
+    @media(max-width:365px){.barcode-fields{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -245,6 +261,30 @@
    <button type="button" class="secondary voice-undo" id="voice-undo" hidden>↩️ Annulla ultimo inserimento vocale</button>
    <p class="hint">Lo sconto viene applicato una sola volta. La dettatura può richiedere internet e l’autorizzazione al microfono; non rimane in ascolto in sottofondo. Non effettua pagamenti.</p>
   </section>
+
+  <section class="section barcode-section" id="barcode-section" aria-labelledby="barcode-title">
+   <div class="section-head"><h2 id="barcode-title">▥ Lettore codice a barre</h2><span class="voice-tag">NOVITÀ</span></div>
+   <p class="hint">Inquadra il codice EAN del prodotto: non serve leggere tutte le scritte sull’etichetta. L’app cerca il nome nel suo archivio locale oppure online. <strong>Prezzi e sconti del negozio non sono normalmente nel codice.</strong></p>
+   <div id="barcode-reader" aria-label="Inquadratura codice a barre"></div>
+   <div class="barcode-buttons"><button class="primary" type="button" id="barcode-start">▥ Leggi codice</button><button class="secondary" type="button" id="barcode-stop" disabled>Ferma</button></div>
+   <p id="barcode-status" role="status" aria-live="polite">Pronto. Tieni il codice al centro dell’inquadratura.</p>
+   <button type="button" class="secondary" id="barcode-next" hidden style="width:100%;margin:6px 0 12px">▶ Scansiona il prossimo prodotto</button>
+   <label for="barcode-manual">Oppure digita il numero sotto al codice</label>
+   <div class="barcode-buttons"><input type="text" inputmode="numeric" maxlength="14" id="barcode-manual" placeholder="Es. 2080235002066"><button type="button" class="secondary" id="barcode-manual-go">Cerca</button></div>
+   <div id="barcode-form" class="barcode-form" hidden>
+    <p class="barcode-quiet" style="margin:0 0 7px">Codice identificato: <strong id="barcode-code"></strong></p>
+    <p id="barcode-origin" class="barcode-quiet"></p>
+    <div class="barcode-fields">
+     <div><label for="barcode-name">Nome prodotto</label><input type="text" maxlength="90" id="barcode-name" placeholder="Es. Pane ai cereali"></div>
+     <div><label for="barcode-price">Prezzo finale (€)</label><input type="text" inputmode="decimal" id="barcode-price" placeholder="Es. 2,06"></div>
+     <div><label for="barcode-qty">Quantità</label><input type="number" min="1" max="999" value="1" id="barcode-qty"></div>
+    </div>
+    <p id="barcode-warning" class="barcode-warn"></p>
+    <button type="button" class="primary" id="barcode-add" style="width:100%">✅ Conferma e aggiungi</button>
+   </div>
+   <p class="barcode-quiet">Il prezzo confermato viene ricordato <strong>solo su questo iPhone</strong>, per le scansioni future; potrebbe cambiare al supermercato. Per i prodotti freschi a peso variabile, il prezzo eventualmente presente nel codice richiede sempre conferma.</p>
+  </section>
+
   <section class="section live-section" aria-labelledby="live-title">
    <div class="live-header"><h2 id="live-title">📷 Scanner automatico</h2><span class="live-tag">NOVITÀ</span></div>
    <p class="hint">Per i <strong>cartellini</strong>: apri la fotocamera una sola volta. Il lettore aspetta che il telefono sia fermo, poi va in <strong>pausa fra un prodotto e l’altro</strong> e riprende quando cambi inquadratura. Per uno <strong>scontrino completo</strong> usa la sezione dedicata qui sotto: il suo totale non sarà inserito come prodotto.</p>
@@ -390,7 +430,7 @@
  }
 
  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items)){
-   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty),productDiscount:Number.isInteger(x.productDiscount)?Math.max(0,Math.min(100,x.productDiscount)):0,lockedFinal:x.lockedFinal===true,skipGeneralDiscount:x.skipGeneralDiscount===true,source:x.source==='voice'?'voice':undefined}));
+   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty),productDiscount:Number.isInteger(x.productDiscount)?Math.max(0,Math.min(100,x.productDiscount)):0,lockedFinal:x.lockedFinal===true,skipGeneralDiscount:x.skipGeneralDiscount===true,source:['voice','barcode'].includes(x.source)?x.source:undefined}));
    state.discount=Number.isFinite(d.discount)?Math.max(0,Math.min(100,Math.round(d.discount))):0;
  }}catch(e){}
  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));saved=true;}catch(e){if(!saved){showToast('Salvataggio non disponibile in questo browser.');saved=true;}}}
@@ -424,7 +464,7 @@
      const li=document.createElement('li');li.className='item';
      const main=document.createElement('div');main.className='item-main';
      const nm=document.createElement('div');nm.className='item-name';nm.textContent=x.name;
-     const pr=document.createElement('div');pr.className='item-price';pr.textContent=(x.lockedFinal?(x.source==='voice'?'Prezzo finale comunicato '+money(x.cents)+' · nessun altro sconto':'Prezzo finale da scontrino '+money(x.cents)+' · nessun altro sconto'):x.productDiscount?'Originale '+money(x.cents)+' · Sconto −'+x.productDiscount+'% · Ora '+money(unitNet(x)):'Prezzo '+money(x.cents))+' ciascuno';
+     const pr=document.createElement('div');pr.className='item-price';pr.textContent=(x.lockedFinal?(x.source==='voice'?'Prezzo finale comunicato '+money(x.cents)+' · nessun altro sconto':x.source==='barcode'?'Prezzo finale verificato '+money(x.cents)+' · nessun altro sconto':'Prezzo finale da scontrino '+money(x.cents)+' · nessun altro sconto'):x.productDiscount?'Originale '+money(x.cents)+' · Sconto −'+x.productDiscount+'% · Ora '+money(unitNet(x)):'Prezzo '+money(x.cents))+' ciascuno';
      const controls=document.createElement('div');controls.className='qty-actions';
      function btn(txt,action,aria){const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=txt;b.setAttribute('aria-label',aria);b.addEventListener('click',action);return b;}
      controls.append(btn('−',()=>adjust(x.id,-1),'Diminuisci quantità '+x.name));
@@ -1731,6 +1771,139 @@
    if(document.hidden&&liveActive){stopLive();liveMessage('Fotocamera fermata perché l’app non è in primo piano. Tocca «Avvia scanner» per riprendere.');}
  });
  window.addEventListener('pagehide',()=>{if(liveActive)stopLive();});
+
+
+ // Lettura EAN: usa html5-qrcode solo quando richiesto (compatibile con Safari iOS).
+ const BARCODE_KEY='la-mia-spesa-codici-v1';
+ let barcodeScanner=null,barcodeActive=false,barcodeReady=false,barcodeLocked=false,barcodeCurrent='',barcodeEpoch=0;
+ let barcodeHistory={};
+ try{const v=JSON.parse(localStorage.getItem(BARCODE_KEY));if(v&&typeof v==='object'&&!Array.isArray(v))barcodeHistory=v;}catch(e){}
+ function saveBarcodeHistory(){try{localStorage.setItem(BARCODE_KEY,JSON.stringify(barcodeHistory));}catch(e){}}
+ function barcodeStatus(msg){$('barcode-status').textContent=msg;}
+ function gtinValid(code){
+   if(!/^\d{8}$|^\d{12,14}$/.test(code))return false;
+   let sum=0,k=0;
+   for(let i=code.length-2;i>=0;i--){sum+=Number(code[i])*(++k%2?3:1);}
+   return (10-sum%10)%10===Number(code.at(-1));
+ }
+ // Per gli EAN-13 interni 20/21: le 5 cifre prima del controllo possono contenere il prezzo in centesimi.
+ // Non e' garantito: alcune insegne usano invece la codifica del peso, quindi NON aggiungere mai senza conferma.
+ function barcodePossibleAmount(code){
+   if(!/^2[01]\d{11}$/.test(code))return null;
+   const cents=Number(code.slice(7,12));
+   return cents>0&&cents<=100000?cents:null;
+ }
+ function loadBarcodeReader(){
+   if(window.Html5Qrcode)return Promise.resolve();
+   if(window._barcodeLibraryPromise)return window._barcodeLibraryPromise;
+   window._barcodeLibraryPromise=new Promise((resolve,reject)=>{
+     const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+     sc.async=true;sc.onload=()=>window.Html5Qrcode?resolve():reject(Error('Lettore non disponibile'));
+     sc.onerror=()=>reject(Error('Non riesco a scaricare il lettore barcode. Verifica la connessione Internet.'));
+     document.head.appendChild(sc);
+   }).catch(err=>{window._barcodeLibraryPromise=null;throw err;});
+   return window._barcodeLibraryPromise;
+ }
+ async function barcodeStop(){
+   barcodeEpoch++;barcodeActive=false;barcodeLocked=false;
+   $('barcode-start').disabled=false;$('barcode-stop').disabled=true;
+   $('barcode-next').hidden=true;
+   const sc=barcodeScanner;barcodeScanner=null;
+   if(sc){try{await sc.stop();}catch(e){}try{sc.clear();}catch(e){}}
+   $('barcode-reader').replaceChildren();
+   barcodeStatus('Lettore fermato. Il carrello rimane salvato.');
+ }
+ async function barcodeStart(){
+   if(barcodeActive)return;
+   if(liveActive)stopLive();
+   const run=++barcodeEpoch;
+   $('barcode-start').disabled=true;
+   barcodeStatus('Carico il lettore barcode. La prima volta serve Internet…');
+   try{
+     await loadBarcodeReader();
+     if(run!==barcodeEpoch)return;
+     const formats=window.Html5QrcodeSupportedFormats;
+     barcodeScanner=new window.Html5Qrcode('barcode-reader',{
+       formatsToSupport:[formats.EAN_13,formats.EAN_8,formats.UPC_A,formats.UPC_E],verbose:false
+     });
+     await barcodeScanner.start({facingMode:'environment'}, {fps:12,qrbox:(w,h)=>({width:Math.min(320,Math.max(160,w-35)),height:Math.min(170,Math.max(100,h-20))})},
+       text=>{
+         if(!barcodeActive||barcodeLocked)return;
+         const code=String(text||'').replace(/\D/g,'');
+         if(!gtinValid(code))return;
+         barcodeLocked=true;$('barcode-next').hidden=false;
+         barcodeStatus('✅ Codice '+code+' riconosciuto. Verifica nome e prezzo prima di aggiungere. Per il successivo, premi «Scansiona il prossimo prodotto».');
+         barcodePresent(code);
+       },()=>{});
+     if(run!==barcodeEpoch){await barcodeStop();return;}
+     barcodeActive=true;$('barcode-stop').disabled=false;
+     barcodeStatus('Fotocamera attiva: inquadra un codice EAN. Non devi tenere ferma l’intera etichetta.');
+   }catch(e){
+     if(run!==barcodeEpoch)return;
+     barcodeActive=false;$('barcode-start').disabled=false;$('barcode-stop').disabled=true;
+     barcodeStatus('⚠️ '+(e?.message||'Fotocamera non disponibile')+' Puoi digitare il numero sotto il codice.');
+     if(barcodeScanner){try{await barcodeScanner.stop()}catch(x){}barcodeScanner=null;}
+   }
+ }
+ async function barcodePresent(code){
+   const rid=++barcodeReady;
+   barcodeCurrent=code;
+   $('barcode-form').hidden=false;$('barcode-code').textContent=code;
+   $('barcode-name').value='';$('barcode-price').value='';$('barcode-qty').value='1';
+   let origin='Non trovato tra i prodotti già registrati.';
+   const saved=barcodeHistory[code];
+   if(saved&&typeof saved.name==='string'){
+     $('barcode-name').value=saved.name;
+     if(Number.isInteger(saved.cents))$('barcode-price').value=(saved.cents/100).toFixed(2).replace('.',',');
+     origin='Riconosciuto sul tuo iPhone: ultimo prezzo registrato (potrebbe essere cambiato).';
+   }
+   const implied=barcodePossibleAmount(code);
+   if(implied!==null){
+     $('barcode-price').value=(implied/100).toFixed(2).replace('.',',');
+     $('barcode-warning').textContent='⚠️ Codice interno di prodotto a peso variabile: '+money(implied)+' è un POSSIBILE importo incorporato. A seconda del punto vendita il codice può contenere il peso anziché il prezzo. Verifica «Importo €» sull’etichetta prima di aggiungere.';
+     origin+=' Il codice potrebbe includere un importo: non è una certezza.';
+   }else{
+     $('barcode-warning').textContent='⚠️ Il codice a barre non indica il prezzo di vendita né gli sconti Coop. Controlla il cartellino e scrivi il prezzo finale, già scontato se necessario.';
+   }
+   $('barcode-origin').textContent=origin;
+   if(!saved&&!/^2[01]/.test(code)){
+     $('barcode-origin').textContent+=' Cerco il nome nel catalogo Open Food Facts…';
+     try{
+       const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'?fields=product_name,product_name_it,brands',{signal:AbortSignal.timeout(7500)});
+       if(r.ok){const data=await r.json();if(rid!==barcodeReady)return;
+         const product=data?.product;const name=String(product?.product_name_it||product?.product_name||'').trim();
+         if(name){$('barcode-name').value=name.slice(0,90);$('barcode-origin').textContent='Nome recuperato da Open Food Facts (catalogo pubblico). Il prezzo non proviene dal catalogo.';}
+         else $('barcode-origin').textContent='Prodotto non trovato nel catalogo: inserisci il nome.';
+       } else if(rid===barcodeReady)$('barcode-origin').textContent='Catalogo prodotti non disponibile: inserisci il nome.';
+     }catch(e){if(rid===barcodeReady)$('barcode-origin').textContent='Catalogo non raggiungibile: puoi inserire il nome manualmente o con la dettatura.';}
+   }
+ }
+ $('barcode-start').addEventListener('click',barcodeStart);
+ $('barcode-stop').addEventListener('click',barcodeStop);
+ $('barcode-next').addEventListener('click',()=>{
+   if(!barcodeActive)return;
+   barcodeLocked=false;$('barcode-next').hidden=true;
+   barcodeStatus('Inquadra il codice del prossimo prodotto.');
+ });
+ $('barcode-manual-go').addEventListener('click',()=>{
+   const code=$('barcode-manual').value.replace(/\D/g,'');
+   if(!gtinValid(code)){barcodeStatus('⚠️ Codice non valido: controlla le cifre e il numero finale di controllo.');return;}
+   barcodeLocked=true;if(barcodeActive)$('barcode-next').hidden=false;
+   barcodePresent(code);barcodeStatus('Codice '+code+' identificato. Controlla e conferma il prezzo.');
+ });
+ $('barcode-add').addEventListener('click',()=>{
+   const code=barcodeCurrent,name=$('barcode-name').value.trim(),cents=parsePrice($('barcode-price').value);
+   const qty=Number($('barcode-qty').value);
+   if(!gtinValid(code)||!name||cents===null||cents<=0||!Number.isInteger(qty)||qty<1||qty>999){
+     barcodeStatus('⚠️ Verifica nome, prezzo finale maggiore di zero e quantità.');return;
+   }
+   state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:name.slice(0,90),cents,qty,productDiscount:0,lockedFinal:true,skipGeneralDiscount:true,source:'barcode'});
+   barcodeHistory[code]={name:name.slice(0,90),cents,when:Date.now()};saveBarcodeHistory();save();render();
+   barcodeStatus('✅ '+name+' aggiunto: '+money(cents*qty)+'. '+(barcodeActive?'Premi «Scansiona il prossimo prodotto» per continuare.':''));
+   $('barcode-form').hidden=true;showToast(name+' aggiunto alla lista');
+ });
+ document.addEventListener('visibilitychange',()=>{if(document.hidden&&barcodeActive)barcodeStop();});
+ window.addEventListener('pagehide',()=>{if(barcodeActive)barcodeStop();});
 
  // Comandi vocali: lavora sulla stessa lista e sugli stessi conteggi di scanner e scontrino.
  let voiceRecognition=null,voiceListening=false,voiceHadResult=false,voiceLastId=null,voiceGuard='';
