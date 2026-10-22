@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="La mia spesa">
-  <meta name="description" content="La mia spesa: scanner cartellini, scontrini con verifica doppioni, prezzi e sconti, confronto totale e carrello.">
+  <meta name="description" content="La mia spesa: scanner rapido con pausa intelligente, comandi vocali, sconti, scontrini e lista prodotti.">
   <title>La mia spesa</title>
   <style>
     :root{color-scheme:light;--ink:#172c47;--muted:#65778b;--bg:#f5f7fc;--card:#fff;--line:#e5eaf1;--blue:#3669e8;--blue2:#174cbd;--radius:22px}
@@ -86,6 +86,13 @@
     .live-toggle input{width:20px;height:20px;flex:none;accent-color:var(--blue);margin:0}
     .live-options{margin-top:10px;display:flex;align-items:center;gap:7px;justify-content:space-between;flex-wrap:wrap}
     .live-options .small-btn{color:#315aa0}
+    .live-view.waiting .live-guide{border-color:#7fe0b0;border-style:dashed}
+    .live-view.waiting .live-guide:after{content:'⏸ In pausa · cambio etichetta per riprendere';color:#dcffed}
+    .live-view.reading .live-guide{border-color:#b1d3ff}
+    .live-view.reading .live-guide:after{content:'🔎 Lettura in corso…'}
+    .live-quick-options{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+    .live-quick-options .live-toggle{margin:0;padding:12px;border:1px solid #d5e3f6;background:#f5f8ff;border-radius:12px}
+    .live-next{width:100%;margin-top:10px}
     .live-pending{border-radius:12px;border:1px solid #f3d79c;padding:9px 11px;font-size:12px;background:#fff9ed;margin:12px 0 0;line-height:1.45;color:#725115}
     @media(max-width:370px){.live-actions{flex-wrap:wrap}.live-actions .secondary{flex:1}}
 
@@ -240,7 +247,7 @@
   </section>
   <section class="section live-section" aria-labelledby="live-title">
    <div class="live-header"><h2 id="live-title">📷 Scanner automatico</h2><span class="live-tag">NOVITÀ</span></div>
-   <p class="hint">Per i <strong>cartellini</strong>: apri la fotocamera una sola volta e inquadra un prezzo alla volta. Per uno <strong>scontrino completo</strong> usa la sezione dedicata qui sotto: il suo totale non sarà inserito come prodotto.</p>
+   <p class="hint">Per i <strong>cartellini</strong>: apri la fotocamera una sola volta. Il lettore aspetta che il telefono sia fermo, poi va in <strong>pausa fra un prodotto e l’altro</strong> e riprende quando cambi inquadratura. Per uno <strong>scontrino completo</strong> usa la sezione dedicata qui sotto: il suo totale non sarà inserito come prodotto.</p>
    <div class="live-view" id="live-view">
     <video id="live-video" autoplay muted playsinline webkit-playsinline aria-label="Anteprima fotocamera per leggere i cartellini"></video>
     <div class="live-placeholder">📷<div style="margin-top:8px">Tocca <strong>Avvia scanner</strong> per aprire la fotocamera posteriore.</div></div>
@@ -249,7 +256,12 @@
    <div class="live-actions"><button class="primary" id="live-start" type="button">Avvia scanner</button><button class="secondary" id="live-stop" type="button" disabled>Ferma</button></div>
    <p id="live-status" class="live-state" role="status" aria-live="polite">Scanner spento. Il carrello e i prezzi restano salvati.</p>
    <label class="live-toggle" for="live-auto"><input id="live-auto" type="checkbox" checked><span><strong>Aggiunta automatica</strong><br>Inserisce il prodotto solo quando nome e prezzo risultano coerenti in due letture. Negli altri casi chiede di verificare.</span></label>
-   <div class="live-options"><button class="small-btn" id="live-retry" type="button" disabled>↻ Rileggi questo cartellino</button><span class="little">Niente doppioni nella stessa scansione</span></div>
+   <div class="live-quick-options">
+    <label class="live-toggle" for="live-sensitive"><input id="live-sensitive" type="checkbox" checked><span><strong>Sensibilità alta</strong><br>Alterna lettura normale e contrasto migliorato.</span></label>
+    <label class="live-toggle" for="live-smart-pause"><input id="live-smart-pause" type="checkbox" checked><span><strong>Pausa intelligente</strong><br>Si ferma dopo un prodotto e riprende cambiando etichetta.</span></label>
+   </div>
+   <button class="secondary live-next" id="live-next" type="button" disabled>▶ Riprendi la lettura adesso</button>
+   <div class="live-options"><button class="small-btn" id="live-retry" type="button" disabled>↻ Rileggi questo cartellino</button><span class="little">Fotocamera attiva solo in primo piano · niente doppi inserimenti involontari</span></div>
    <button type="button" class="receipt-shortcut" id="open-receipt">🧾 È uno scontrino? Leggi tutte le voci</button>
    <p class="live-pending" id="live-notice" hidden>⚠️ Il riconoscimento non può individuare tutti gli errori: verifica di tanto in tanto il totale. Per prezzi al kg e offerte poco chiare è prevista una conferma.</p>
    <div id="live-review-slot"></div>
@@ -666,8 +678,8 @@
    if(reviewOrigin==='live'){
      if(livePending)seenLiveKeys.add(livePending.key);
      livePending=null;livePaused=false;
-     liveMessage('✅ '+name+' aggiunto: '+money(Math.round(cents*(100-pct)/100)*qty)+'. Inquadra il prossimo cartellino.','good');
-     scheduleLive(1600);
+     livePauseForNext('✅ '+name+' aggiunto: '+money(Math.round(cents*(100-pct)/100)*qty)+'.');
+     if(liveActive){$('live-view').scrollIntoView({behavior:'smooth',block:'center'});liveVideo.play().catch(()=>{});}
    } else {
      $('items').scrollIntoView({behavior:'smooth',block:'center'});
    }
@@ -678,8 +690,8 @@
    if(reviewOrigin==='live'){
      if(livePending)seenLiveKeys.add(livePending.key);
      livePending=null;livePaused=false;
-     liveMessage('Proposta saltata. Inquadra un altro cartellino.','warn');
-     scheduleLive(1600);
+     livePauseForNext('Proposta saltata.');
+     if(liveActive){$('live-view').scrollIntoView({behavior:'smooth',block:'center'});liveVideo.play().catch(()=>{});}
    }
    showToast('Proposta annullata');
  });
@@ -1316,10 +1328,13 @@
      b.disabled=false;b.textContent='Riprova la lettura della foto';
    }
  });
- // --- Scanner continuo: nessuna foto salvata o inviata a un server. ---
+ // --- Scanner con pausa intelligente: OCR solo a inquadratura ferma. ---
+ // Conserva in memoria soltanto pochi campioni temporanei della scena, mai foto.
  const liveVideo=$('live-video');
  let liveStream=null,liveWorker=null,liveActive=false,liveBusy=false,livePaused=false;
  let liveTimer=null,liveRound=0,liveLastKey='',liveStreak=0,liveLastAcceptedKey='';
+ let liveAwaitingNew=false,livePauseBase=null,livePauseStarted=0,liveMovedFrames=0;
+ let livePrevScene=null,liveStableFrames=0,liveReadIndex=0,liveReadScene=null;
  const seenLiveKeys=new Set();
  function liveMessage(message,tone=''){
    const box=$('live-status');
@@ -1331,7 +1346,9 @@
    $('live-start').textContent=active?'Scanner attivo':'Avvia scanner';
    $('live-stop').disabled=!active;
    $('live-retry').disabled=!active;
+   $('live-next').disabled=!active;
    $('live-view').classList.toggle('on',active);
+   if(!active)$('live-view').classList.remove('reading','waiting');
    $('live-notice').hidden=!active;
  }
  function terminateLiveWorker(worker){
@@ -1339,36 +1356,99 @@
  }
  function stopLive(){
    liveRound++;
-   liveActive=false;livePaused=false;
+   liveActive=false;livePaused=false;liveAwaitingNew=false;
+   livePauseBase=null;livePrevScene=null;liveReadScene=null;liveMovedFrames=liveStableFrames=0;
    clearTimeout(liveTimer);liveTimer=null;
    if(liveStream){liveStream.getTracks().forEach(track=>track.stop());liveStream=null;}
    liveVideo.pause();liveVideo.srcObject=null;
-   // Se il worker sta leggendo, verrà terminato quando ha finito.
    const old=liveWorker;liveWorker=null;
    if(!liveBusy)terminateLiveWorker(old);
    liveButtons(false);
    liveMessage('Scanner spento. Carrello e sconti sono conservati.');
  }
- function scheduleLive(delay=1400){
+ function scheduleLive(delay=500){
    clearTimeout(liveTimer);
    if(!liveActive||livePaused||!liveWorker||document.hidden)return;
    const run=liveRound;
    liveTimer=setTimeout(()=>{if(run===liveRound)readLiveFrame(run);},delay);
  }
- function makeLiveFrame(){
-   const video=liveVideo;
-   if(video.readyState<2||!video.videoWidth||!video.videoHeight)return null;
-   // Parte centrale della fotocamera: un solo cartellino entro il riquadro.
-   const w=video.videoWidth,h=video.videoHeight;
-   const cropW=w*.86,cropH=h*.69,x=(w-cropW)/2,y=(h-cropH)/2;
-   const sc=Math.min(1.8,1850/Math.max(cropW,cropH));
+ // Coordinate equivalenti all'anteprima object-fit:cover su schermi iPhone.
+ function liveCameraCrop(){
+   const v=liveVideo;if(v.readyState<2||!v.videoWidth||!v.videoHeight)return null;
+   const w=v.videoWidth,h=v.videoHeight;
+   const r=$('live-view').getBoundingClientRect();
+   const ratio=(r.width>0&&r.height>0)?r.width/r.height:4/3;
+   let visibleW=w,visibleH=h;
+   if(w/h>ratio)visibleW=h*ratio;
+   else visibleH=w/ratio;
+   const left=(w-visibleW)/2, top=(h-visibleH)/2;
+   // Il riquadro chiaro ha inset orizzontale 7% e verticale 15%.
+   return {x:left+visibleW*.07,y:top+visibleH*.15,w:visibleW*.86,h:visibleH*.70};
+ }
+ function liveSceneSample(){
+   const crop=liveCameraCrop();if(!crop)return null;
+   const canvas=document.createElement('canvas');canvas.width=40;canvas.height=28;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)return null;
+   ctx.drawImage(liveVideo,crop.x,crop.y,crop.w,crop.h,0,0,40,28);
+   const pixels=ctx.getImageData(0,0,40,28).data;
+   const values=new Uint8Array(40*28);
+   for(let k=0,j=0;k<pixels.length;k+=4,j++)values[j]=(pixels[k]*3+pixels[k+1]*6+pixels[k+2])/10;
+   return values;
+ }
+ function liveSceneDifference(a,b){
+   if(!a||!b||a.length!==b.length)return 1;
+   let acc=0;for(let k=0;k<a.length;k++)acc+=Math.abs(a[k]-b[k]);
+   return acc/(a.length*255);
+ }
+ function makeLiveFrame(contrast=false){
+   const crop=liveCameraCrop();if(!crop)return null;
    const canvas=document.createElement('canvas');
-   canvas.width=Math.max(1,Math.round(cropW*sc));
-   canvas.height=Math.max(1,Math.round(cropH*sc));
-   const ctx=canvas.getContext('2d',{alpha:false});
+   const factor=Math.min(2,1530/Math.max(crop.w,crop.h));
+   canvas.width=Math.max(1,Math.round(crop.w*factor));
+   canvas.height=Math.max(1,Math.round(crop.h*factor));
+   const ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:contrast});
    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
-   ctx.drawImage(video,x,y,cropW,cropH,0,0,canvas.width,canvas.height);
+   ctx.drawImage(liveVideo,crop.x,crop.y,crop.w,crop.h,0,0,canvas.width,canvas.height);
+   if(contrast){
+     const image=ctx.getImageData(0,0,canvas.width,canvas.height);
+     const d=image.data;
+     for(let i=0;i<d.length;i+=4){
+       const gray=.3*d[i]+.59*d[i+1]+.11*d[i+2];
+       const value=Math.max(0,Math.min(255,(gray-128)*1.43+130));
+       d[i]=d[i+1]=d[i+2]=value;
+     }
+     ctx.putImageData(image,0,0);
+   }
    return canvas;
+ }
+ function livePauseForNext(message){
+   livePaused=false;liveLastKey='';liveStreak=0;
+   liveStableFrames=0;livePrevScene=null;
+   if($('live-smart-pause').checked){
+     liveAwaitingNew=true;livePauseBase=liveReadScene||liveSceneSample();livePauseStarted=Date.now();liveMovedFrames=0;
+     $('live-view').classList.add('waiting');$('live-view').classList.remove('reading');
+     liveMessage(message+' ⏸ In pausa: spostati sul prossimo cartellino; riprendo da solo quando cambia l’inquadratura.','good');
+     scheduleLive(350);
+   }else{
+     liveAwaitingNew=false;livePauseBase=null;
+     liveMessage(message+' Inquadra il prossimo cartellino.','good');
+     scheduleLive(500);
+   }
+ }
+ function watchLiveScene(run){
+   if(run!==liveRound||!liveActive||!liveAwaitingNew)return;
+   const sample=liveSceneSample();
+   if(!sample){scheduleLive(450);return;}
+   // Non ripartire a causa di lievi vibrazioni, cambi di luce o dello stesso prezzo.
+   if(Date.now()-livePauseStarted>=900 && liveSceneDifference(sample,livePauseBase)>0.085)liveMovedFrames++;
+   else liveMovedFrames=0;
+   if(liveMovedFrames>=2){
+     liveAwaitingNew=false;livePauseBase=null;liveMovedFrames=0;
+     livePrevScene=sample;liveStableFrames=0;
+     $('live-view').classList.remove('waiting');
+     liveMessage('📷 Nuova inquadratura rilevata. Tieni fermo il telefono un istante.','good');
+     scheduleLive(270);
+   }else scheduleLive(370);
  }
  function hasAnyLabel(text,regex){return regex.test(String(text));}
  function liveOfferFromText(text,ocrConfidence){
@@ -1393,7 +1473,8 @@
    const offer=buildOffer(text,chosen.cents);
    const base=offer.baseCents??chosen.cents,pct=offer.percent||0;
    const net=Math.round(base*(100-pct)/100);
-   let sure=knownName&&ocrConfidence>=76&&(hasEuro||hasPriceCue)&&amountCount<=1;
+   const minConfidence=$('live-sensitive').checked?72:76;
+   let sure=knownName&&ocrConfidence>=minConfidence&&(hasEuro||hasPriceCue)&&amountCount<=1;
    let reason='';
    if(!name){sure=false;reason='Il nome non è leggibile.';}
    else if(!knownName){sure=false;reason='Controlla il nome del prodotto.';}
@@ -1409,16 +1490,10 @@
      }else if(original!==null){
        if(!hasEuro){sure=false;reason='Verifica il prezzo originale.';}
      }else if(final!==null){
-       // Un importo già finale non deve subire un secondo sconto.
        if(pct!==0||base!==final){sure=false;reason='Possibile doppio sconto: verifica.';}
      }else{sure=false;reason='Sconto rilevato, ma prezzo originale o finale non chiaro.';}
-   }else if(hasPromotion){
-     sure=false;reason='Offerta individuata, ma sconto non leggibile.';
-   }
-   if(hasPromotion&&state.discount>0){
-     sure=false;
-     reason='Hai anche uno sconto generale del '+state.discount+'%: controlla che non venga applicato due volte.';
-   }
+   }else if(hasPromotion){sure=false;reason='Offerta individuata, ma sconto non leggibile.';}
+   if(hasPromotion&&state.discount>0){sure=false;reason='Hai anche uno sconto generale del '+state.discount+'%: controlla che non venga applicato due volte.';}
    if(nonUnit.length>1&&original===null&&final===null){sure=false;reason='Più prezzi possibili.';}
    if(!chosen.source.includes('importo')&&genericUnique!==1&&final===null&&original===null){sure=false;reason='Non è chiaro quale sia il prezzo finale.';}
    if(base<=0||base>200000||net<=0){sure=false;reason='Importo fuori intervallo: verifica.';}
@@ -1427,49 +1502,67 @@
    return {name,cents:base,percent:pct,net,confidence:ocrConfidence,sure,reason,key,text,offer};
  }
  function processLiveRead(text,confidence){
-   if(!liveActive||livePaused)return;
+   if(!liveActive||livePaused||liveAwaitingNew)return;
    if(looksLikeReceipt(text)){
      liveStreak=0;liveLastKey='';
-     liveMessage('🧾 Scontrino o totale spesa rilevato: NON aggiungo questo importo. Usa «Controlla uno scontrino» per confrontarlo.','warn');
+     liveMessage('🧾 Scontrino o totale spesa rilevato: non aggiungo questo importo. Usa «Controlla uno scontrino».','warn');
      return;
    }
    const guess=liveOfferFromText(text,confidence);
    if(!guess){
      liveStreak=0;liveLastKey='';
-     liveMessage('Inquadra da vicino un cartellino leggibile, tenendo fermo il telefono.');
+     liveMessage('Inquadra da vicino un cartellino, con il prezzo dentro il riquadro.');
+     return;
+   }
+   if(seenLiveKeys.has(guess.key)){
+     liveLastKey='';liveStreak=0;
+     livePauseForNext('✓ Cartellino già registrato.');
      return;
    }
    if(guess.key===liveLastKey)liveStreak++;
    else{liveLastKey=guess.key;liveStreak=1;}
-   if(seenLiveKeys.has(guess.key)){
-     liveMessage('✓ Cartellino già letto. Spostati sul prossimo; per ripeterlo usa «Rileggi questo cartellino».','good');
-     return;
-   }
    if(liveStreak<2){
-     liveMessage('Rilevato '+(guess.name||'un prodotto')+' · '+money(guess.net)+'. Verifico la lettura…');
+     liveMessage('🔎 Rilevato '+(guess.name||'un prodotto')+' · '+money(guess.net)+'. Verifico il numero per evitare errori…');
      return;
    }
    if(guess.sure&&$('live-auto').checked){
-     state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:guess.name,cents:guess.cents,qty:1,productDiscount:guess.percent});
+     state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:guess.name,cents:guess.cents,qty:1,productDiscount:guess.percent,skipGeneralDiscount:guess.percent>0});
      seenLiveKeys.add(guess.key);liveLastAcceptedKey=guess.key;
      save();render();
-     liveMessage('✅ Aggiunto '+guess.name+' · '+money(guess.net)+'. Nuovo totale: '+$('total').textContent+'. Inquadra un altro prodotto.','good');
+     livePauseForNext('✅ '+guess.name+' aggiunto · '+money(guess.net)+'. Totale: '+$('total').textContent+'.');
      showToast(guess.name+' aggiunto automaticamente');
      if(navigator.vibrate)try{navigator.vibrate(75);}catch(e){}
    }else{
      livePaused=true;livePending=guess;
      placeReview('live');showReview(guess.name,guess.cents,true,guess.offer);
      $('discount-detected').textContent=guess.reason || (guess.sure?'Aggiunta automatica disattivata. Conferma il prodotto.':'Controlla il nome, il prezzo e lo sconto.');
-     liveMessage('⚠️ Lettura da controllare: '+(guess.reason||'conferma i campi prima di aggiungere.') ,'warn');
+     liveMessage('⚠️ Lettura da controllare: '+(guess.reason||'conferma i campi prima di aggiungere.'),'warn');
+     $('live-view').classList.remove('reading');
      $('review').scrollIntoView({behavior:'smooth',block:'nearest'});
    }
  }
  async function readLiveFrame(run){
-   const worker=liveWorker;
-   if(!worker||!liveActive||livePaused||run!==liveRound||liveBusy)return;
-   const frame=makeLiveFrame();
-   if(!frame){scheduleLive(1100);return;}
-   liveBusy=true;
+   if(!liveActive||livePaused||run!==liveRound||liveBusy)return;
+   if(liveAwaitingNew){watchLiveScene(run);return;}
+   const worker=liveWorker;if(!worker)return;
+   const sample=liveSceneSample();
+   if(!sample){scheduleLive(430);return;}
+   const diff=liveSceneDifference(sample,livePrevScene);
+   livePrevScene=sample;
+   if(diff>.054){
+     liveStableFrames=0;
+     liveMessage('📷 Inquadra il cartellino e tieni il telefono fermo: leggo appena l’immagine è stabile.');
+     $('live-view').classList.remove('reading');
+     scheduleLive(330);return;
+   }
+   liveStableFrames++;
+   if(liveStableFrames<2){scheduleLive(245);return;}
+   // L'alternanza di contrasto migliora le letture difficili senza duplicare il costo OCR.
+   const contrast=$('live-sensitive').checked&&(liveReadIndex%3===1);
+   const frame=makeLiveFrame(contrast);
+   if(!frame){scheduleLive(430);return;}
+   liveReadIndex++;liveReadScene=sample;liveBusy=true;
+   $('live-view').classList.add('reading');
    try{
      const result=await worker.recognize(frame);
      if(run!==liveRound||!liveActive)return;
@@ -1477,13 +1570,14 @@
      const confidence=Number(result?.data?.confidence)||0;
      processLiveRead(content,confidence);
    }catch(e){
-     if(run===liveRound&&liveActive)liveMessage('Lettura temporaneamente non riuscita. Riprovo automaticamente.','warn');
+     if(run===liveRound&&liveActive)liveMessage('Lettura non riuscita. Riprovo senza riavviare la fotocamera.','warn');
    }finally{
      frame.width=frame.height=0;
-     if(worker!==liveWorker){terminateLiveWorker(worker);}
+     $('live-view').classList.remove('reading');
+     if(worker!==liveWorker)terminateLiveWorker(worker);
      else{
        liveBusy=false;
-       if(run===liveRound)scheduleLive(liveStreak?1300:1650);
+       if(run===liveRound)scheduleLive(liveStreak?420:720);
      }
    }
  }
@@ -1491,18 +1585,17 @@
    stopLive();
    if(livePending){livePending=null;$('review').hidden=true;}
    const run=++liveRound;
-   liveActive=true;liveBusy=false;livePaused=false;liveStreak=0;liveLastKey='';liveLastAcceptedKey='';
+   liveActive=true;liveBusy=false;livePaused=false;liveAwaitingNew=false;
+   liveStreak=0;liveLastKey='';liveLastAcceptedKey='';liveReadIndex=0;
+   livePrevScene=null;livePauseBase=null;liveReadScene=null;liveStableFrames=liveMovedFrames=0;
    seenLiveKeys.clear();
    liveButtons(true);
    liveMessage('Richiedo l’accesso alla fotocamera…');
    try{
-     if(!navigator.mediaDevices?.getUserMedia){
-       throw new Error('La fotocamera richiede Safari o l’app dalla Home con indirizzo HTTPS.');
-     }
+     if(!navigator.mediaDevices?.getUserMedia)throw new Error('La fotocamera richiede Safari o l’app dalla Home con indirizzo HTTPS.');
      const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
      if(run!==liveRound){stream.getTracks().forEach(t=>t.stop());return;}
-     liveStream=stream;
-     liveVideo.srcObject=stream;
+     liveStream=stream;liveVideo.srcObject=stream;
      await liveVideo.play();
      if(run!==liveRound)return;
      liveMessage('Preparo il riconoscimento dei cartellini… (al primo utilizzo serve internet).');
@@ -1512,29 +1605,49 @@
      await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
      if(run!==liveRound){terminateLiveWorker(worker);return;}
      liveWorker=worker;
-     liveMessage('Scanner attivo. Inquadra un cartellino dentro il riquadro.','good');
-     scheduleLive(650);
+     liveMessage('📷 Scanner pronto. Fermati sul prezzo: aspetto l’immagine stabile prima di leggerlo.','good');
+     scheduleLive(350);
    }catch(e){
      if(run!==liveRound)return;
      const msg=e?.name==='NotAllowedError'?'Accesso alla fotocamera negato: abilitalo per il sito nelle impostazioni di Safari.':
        e?.name==='NotFoundError'?'Nessuna fotocamera disponibile.':
        e?.message||'Impossibile aprire la fotocamera.';
      stopLive();
-     liveMessage('⚠️ '+msg+' Puoi comunque usare «Scatta o scegli foto» qui sotto.','warn');
+     liveMessage('⚠️ '+msg+' Puoi usare «Scatta o scegli foto» qui sotto.','warn');
    }
  }
  $('live-start').addEventListener('click',startLive);
  $('live-stop').addEventListener('click',stopLive);
+ $('live-next').addEventListener('click',()=>{
+   if(!liveActive)return;
+   livePaused=false;liveAwaitingNew=false;livePauseBase=null;livePrevScene=null;
+   liveStableFrames=0;liveStreak=0;liveLastKey='';
+   $('live-view').classList.remove('waiting','reading');
+   liveMessage('▶ Lettura ripresa. Inquadra il prossimo cartellino.','good');
+   scheduleLive(300);
+ });
  $('live-retry').addEventListener('click',()=>{
    if(liveLastAcceptedKey){seenLiveKeys.delete(liveLastAcceptedKey);liveLastAcceptedKey='';}
    else if(liveLastKey)seenLiveKeys.delete(liveLastKey);
-   liveLastKey='';liveStreak=0;
-   livePaused=false;
-   liveMessage('Cartellino sbloccato: puoi scansionarlo di nuovo.');
-   scheduleLive(400);
+   liveLastKey='';liveStreak=0;livePaused=false;liveAwaitingNew=false;
+   livePauseBase=null;livePrevScene=null;liveStableFrames=0;
+   $('live-view').classList.remove('waiting');
+   liveMessage('Cartellino sbloccato: puoi leggerlo di nuovo.','good');
+   scheduleLive(300);
+ });
+ $('live-sensitive').addEventListener('change',()=>{
+   liveReadIndex=0;
+   liveMessage($('live-sensitive').checked?'Sensibilità alta attiva: alterno lettura normale e contrasto.':'Sensibilità normale attiva.');
+ });
+ $('live-smart-pause').addEventListener('change',()=>{
+   if(!$('live-smart-pause').checked&&liveAwaitingNew){
+     liveAwaitingNew=false;livePauseBase=null;livePrevScene=null;liveStableFrames=0;
+     $('live-view').classList.remove('waiting');scheduleLive(320);
+   }
+   liveMessage($('live-smart-pause').checked?'Pausa intelligente attiva: riparto quando cambi inquadratura.':'Pausa intelligente disattivata: lettura continua.');
  });
  $('live-auto').addEventListener('change',()=>{
-   liveMessage($('live-auto').checked?'Aggiunta automatica attiva solo per letture verificate.':'Modalità conferma: ogni cartellino richiederà una conferma.');
+   liveMessage($('live-auto').checked?'Aggiunta automatica solo per letture verificate.':'Modalità conferma: ogni cartellino richiederà una conferma.');
  });
  document.addEventListener('visibilitychange',()=>{
    if(document.hidden&&liveActive){stopLive();liveMessage('Fotocamera fermata perché l’app non è in primo piano. Tocca «Avvia scanner» per riprendere.');}
