@@ -170,6 +170,29 @@
     .toast.show{opacity:1;transform:translate(-50%,0)}
     @media(max-width:370px){.wrap{width:calc(100% - 22px)}.summary{padding:20px}.total{font-size:39px}.fields{grid-template-columns:minmax(0,1fr) 100px}.section{padding:15px}.summary-grid{gap:4px}.summary-grid strong{font-size:13px}}
     @media(prefers-reduced-motion:reduce){.toast{transition:none}}
+
+    /* Voce: aggiunta rapida a un tocco, con conferma o annullamento. */
+    .voice-section{border-color:#a9c4fa;box-shadow:0 8px 19px rgba(45,97,196,.07)}
+    .voice-head{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:8px}
+    .voice-tag{font-size:11px;background:#e8f4ed;color:#206842;padding:6px 9px;border-radius:999px;font-weight:850}
+    .voice-help{margin:4px 0 12px;color:#5e738d;font-size:13px;line-height:1.5}
+    .voice-sample{background:#eef4ff;padding:12px;border-radius:11px;line-height:1.5;color:#214679;font-size:13px;margin:10px 0}
+    .voice-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin:12px 0}
+    .voice-actions .primary{font-size:17px;min-height:55px}
+    .voice-actions .secondary{min-height:55px}
+    #voice-text{min-height:77px;margin-top:5px;font-size:16px}
+    .voice-review{background:#eff5ff;border:1.5px solid #a8c5f9;border-radius:15px;padding:14px;margin-top:13px}
+    .voice-review-grid{display:grid;grid-template-columns:minmax(0,1fr) 118px;gap:8px}
+    .voice-review-grid .voice-wide{grid-column:1 / -1}
+    .voice-review input,.voice-review select{background:#fff!important}
+    .voice-review select{display:block;width:100%;border:1.5px solid #dce3ed;border-radius:13px;padding:12px;min-height:45px;color:#172c47}
+    #voice-preview-result{margin:12px 0;padding:11px;background:#fff;border-radius:10px;line-height:1.5;font-size:13px}
+    .voice-review .primary{font-size:16px}
+    #voice-alert{line-height:1.5;font-size:13px;color:#365b8d;margin-top:8px}
+    .voice-undo{width:100%;margin-top:9px}
+    .general-warning{border:1px solid #edc592;color:#76461b;background:#fff2e1;padding:12px;margin-top:12px;border-radius:12px;font-size:13px;line-height:1.45}
+    .general-warning button{border:1px solid #e2ac75;border-radius:9px;background:#fff;font-weight:750;padding:9px 10px;color:#78491f;margin-top:8px}
+    @media(max-width:370px){.voice-review-grid{grid-template-columns:minmax(0,1fr) 100px}.voice-actions{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -185,6 +208,35 @@
     <div><span>Risparmio</span><strong id="saving">0,00 €</strong></div>
     <div><span>Prodotti</span><strong id="count">0</strong></div>
    </div>
+  </section>
+
+  <section class="section voice-section" aria-labelledby="voice-title" id="voice-section">
+   <div class="voice-head"><h2 id="voice-title">🎙️ Aggiungi con la voce</h2><span class="voice-tag">NUOVO</span></div>
+   <p class="voice-help">Quando trovi un prodotto, premi il microfono e comunica <strong>nome e prezzo finale</strong>. Non serve usare lo scanner.</p>
+   <div class="general-warning" id="voice-global-warning" hidden><strong id="voice-global-value"></strong><div>Il totale attuale potrebbe essere troppo basso: questo sconto è applicato a tutta la spesa e non rappresenta automaticamente le offerte del negozio.</div><button type="button" id="voice-global-reset">Azzera lo sconto generale</button></div>
+   <div class="voice-sample">Puoi dire: <strong>«Banane, prezzo finale un euro e ottanta, aggiungi al carrello»</strong>.<br>Oppure: <strong>«Pane, prezzo originale due euro, sconto venti per cento»</strong>.</div>
+   <div class="voice-actions"><button type="button" class="primary" id="voice-start">🎙️ Parla ora</button><button class="secondary" id="voice-stop" type="button" disabled>Ferma</button></div>
+   <p class="status" role="status" aria-live="polite" id="voice-status">Ascolto solo dopo aver premuto «Parla ora». Se il microfono non funziona nell’app, usa il microfono della tastiera.</p>
+   <label for="voice-text" class="step-label">Frase riconosciuta (puoi correggerla)</label>
+   <textarea id="voice-text" placeholder="Es. Banane, 1 euro e 80, aggiungi al carrello" rows="2"></textarea>
+   <button class="secondary" id="voice-parse" type="button" style="width:100%;margin-top:8px">Interpreta frase</button>
+   <div class="voice-review" id="voice-review" hidden>
+    <h3 style="margin:0 0 5px;font-size:17px;color:#214882">Verifica il prodotto</h3>
+    <div class="voice-review-grid">
+     <div><label for="voice-name">Nome</label><input id="voice-name" type="text" maxlength="90"></div>
+     <div><label for="voice-price">Prezzo (€)</label><input id="voice-price" type="text" inputmode="decimal"></div>
+     <div><label for="voice-qty">Quantità</label><input id="voice-qty" type="number" min="1" max="999" value="1"></div>
+     <div><label for="voice-pct">Sconto (%)</label><input id="voice-pct" type="number" min="0" max="100" value="0"></div>
+     <div class="voice-wide"><label for="voice-kind">Il prezzo comunicato è…</label>
+      <select id="voice-kind"><option value="final">quello FINALE (già scontato, se c'è uno sconto)</option><option value="original">quello ORIGINALE, prima dello sconto</option></select>
+     </div>
+    </div>
+    <p id="voice-preview-result" aria-live="polite"></p>
+    <p id="voice-alert" role="status"></p>
+    <button type="button" class="primary" id="voice-add">✅ Conferma e aggiungi al carrello</button>
+   </div>
+   <button type="button" class="secondary voice-undo" id="voice-undo" hidden>↩️ Annulla ultimo inserimento vocale</button>
+   <p class="hint">Lo sconto viene applicato una sola volta. La dettatura può richiedere internet e l’autorizzazione al microfono; non rimane in ascolto in sottofondo. Non effettua pagamenti.</p>
   </section>
   <section class="section live-section" aria-labelledby="live-title">
    <div class="live-header"><h2 id="live-title">📷 Scanner automatico</h2><span class="live-tag">NOVITÀ</span></div>
@@ -251,7 +303,8 @@
   <section class="section" aria-labelledby="discount-title">
    <div class="section-head"><h2 id="discount-title">🏷️ Sconto sulla spesa</h2></div>
    <div class="discount"><input aria-label="Regola percentuale di sconto" id="discount-slider" type="range" min="0" max="100" step="1" value="0"><div class="discount-number"><input aria-label="Sconto percentuale" id="discount-number" type="number" inputmode="numeric" min="0" max="100" step="1" value="0"></div></div>
-   <p class="hint">Lo sconto generale si applica ai prodotti normali, ma <strong>non</strong> ai prezzi finali importati dagli scontrini: evitiamo un doppio sconto.</p>
+   <p class="hint">Lo sconto generale si applica solo ai prodotti senza prezzo finale o sconto già calcolato. <strong>Non è l’IVA dello scontrino.</strong></p>
+   <div id="general-warning" class="general-warning" hidden><strong id="general-warning-value"></strong><div>Attenzione: una percentuale generale non è uno sconto automatico del supermercato e può far risultare troppo basso il totale.</div><button id="general-reset" type="button">Disattiva lo sconto generale</button></div>
   </section>
   <section class="section" aria-labelledby="list-title">
    <div class="section-head"><h2 id="list-title">🧾 La lista</h2><span class="little" id="line-count">0 voci</span></div>
@@ -325,7 +378,7 @@
  }
 
  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items)){
-   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty),productDiscount:Number.isInteger(x.productDiscount)?Math.max(0,Math.min(100,x.productDiscount)):0,lockedFinal:x.lockedFinal===true}));
+   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty),productDiscount:Number.isInteger(x.productDiscount)?Math.max(0,Math.min(100,x.productDiscount)):0,lockedFinal:x.lockedFinal===true,skipGeneralDiscount:x.skipGeneralDiscount===true,source:x.source==='voice'?'voice':undefined}));
    state.discount=Number.isFinite(d.discount)?Math.max(0,Math.min(100,Math.round(d.discount))):0;
  }}catch(e){}
  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));saved=true;}catch(e){if(!saved){showToast('Salvataggio non disponibile in questo browser.');saved=true;}}}
@@ -341,25 +394,25 @@
  let toastTimer;
  function showToast(s){const t=$('toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
  function unitNet(x){return Math.round(x.cents*(100-(x.productDiscount||0))/100);}
- function currentCartCents(){const after=state.items.reduce((n,x)=>n+unitNet(x)*x.qty,0);const base=state.items.reduce((n,x)=>n+(x.lockedFinal?0:unitNet(x)*x.qty),0);return after-Math.round(base*state.discount/100);}
+ function currentCartCents(){const after=state.items.reduce((n,x)=>n+unitNet(x)*x.qty,0);const base=state.items.reduce((n,x)=>n+(x.lockedFinal||x.skipGeneralDiscount?0:unitNet(x)*x.qty),0);return after-Math.round(base*state.discount/100);}
  function render(){
    const s=state.items.reduce((n,x)=>n+x.cents*x.qty,0);
    const afterItemDiscount=state.items.reduce((n,x)=>n+unitNet(x)*x.qty,0);
-   const generalDiscountBase=state.items.reduce((n,x)=>n+(x.lockedFinal?0:unitNet(x)*x.qty),0);
+   const generalDiscountBase=state.items.reduce((n,x)=>n+(x.lockedFinal||x.skipGeneralDiscount?0:unitNet(x)*x.qty),0);
    const cartSaving=Math.round(generalDiscountBase*state.discount/100);
    const total=afterItemDiscount-cartSaving;
    const saving=s-total;
    $('total').textContent=money(total);$('subtotal').textContent=money(s);$('saving').textContent=money(saving);
    $('count').textContent=state.items.reduce((n,x)=>n+x.qty,0);
    $('line-count').textContent=state.items.length===1?'1 voce':state.items.length+' voci';
-   $('discount-slider').value=state.discount;$('discount-number').value=state.discount;
+   $('discount-slider').value=state.discount;$('discount-number').value=state.discount; $('general-warning').hidden=state.discount===0; $('general-warning-value').textContent='Sconto generale attivo: −'+state.discount+'%';$('voice-global-warning').hidden=state.discount===0;$('voice-global-value').textContent='Attenzione: sconto generale −'+state.discount+'% attivo';
    $('empty').hidden=state.items.length>0;$('list-tools').hidden=state.items.length===0;
    $('items').replaceChildren();
    for(const x of state.items){
      const li=document.createElement('li');li.className='item';
      const main=document.createElement('div');main.className='item-main';
      const nm=document.createElement('div');nm.className='item-name';nm.textContent=x.name;
-     const pr=document.createElement('div');pr.className='item-price';pr.textContent=(x.lockedFinal?'Prezzo finale da scontrino '+money(x.cents)+' · nessun altro sconto':x.productDiscount?'Originale '+money(x.cents)+' · Sconto −'+x.productDiscount+'% · Ora '+money(unitNet(x)):'Prezzo '+money(x.cents))+' ciascuno';
+     const pr=document.createElement('div');pr.className='item-price';pr.textContent=(x.lockedFinal?(x.source==='voice'?'Prezzo finale comunicato '+money(x.cents)+' · nessun altro sconto':'Prezzo finale da scontrino '+money(x.cents)+' · nessun altro sconto'):x.productDiscount?'Originale '+money(x.cents)+' · Sconto −'+x.productDiscount+'% · Ora '+money(unitNet(x)):'Prezzo '+money(x.cents))+' ciascuno';
      const controls=document.createElement('div');controls.className='qty-actions';
      function btn(txt,action,aria){const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=txt;b.setAttribute('aria-label',aria);b.addEventListener('click',action);return b;}
      controls.append(btn('−',()=>adjust(x.id,-1),'Diminuisci quantità '+x.name));
@@ -381,7 +434,7 @@
  function adjust(id,delta){const x=state.items.find(x=>x.id===id);if(!x)return;x.qty=Math.max(1,Math.min(999,x.qty+delta));save();render();}
  function edit(id){const x=state.items.find(x=>x.id===id);if(!x)return;
    const name=prompt('Nome del prodotto',x.name);if(name===null)return;if(!name.trim()){showToast('Inserisci un nome');return;}
-   const price=prompt(x.lockedFinal?'Prezzo finale dello scontrino in euro':'Prezzo del prodotto in euro',String((x.cents/100).toFixed(2)).replace('.',','));if(price===null)return;
+   const price=prompt(x.lockedFinal?(x.source==='voice'?'Prezzo finale comunicato in euro':'Prezzo finale dello scontrino in euro'):'Prezzo del prodotto in euro',String((x.cents/100).toFixed(2)).replace('.',','));if(price===null)return;
    const cents=parsePrice(price);if(cents===null){showToast('Prezzo non valido');return;}
    const discount=prompt('Sconto prodotto in percentuale (0–100)',String(x.productDiscount||0));if(discount===null)return;
    const pct=validPercent(discount);if(pct===null){showToast('Sconto non valido: usa 0–100');return;}
@@ -397,6 +450,8 @@
    $('product-name').value='';$('product-price').value='';$('product-discount').value='0';$('product-qty').value='1';$('product-name').focus();showToast('Aggiunto alla lista');
  });
  function setDiscount(v){const n=Number(v);state.discount=Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):0;save();render();}
+ $('general-reset').addEventListener('click',()=>{setDiscount(0);showToast('Sconto generale azzerato');});
+ $('voice-global-reset').addEventListener('click',()=>{setDiscount(0);showToast('Sconto generale azzerato');});
  $('discount-slider').addEventListener('input',e=>setDiscount(e.target.value));
  $('discount-number').addEventListener('input',e=>{if(e.target.value!=='')setDiscount(e.target.value);});
  $('discount-number').addEventListener('change',()=>setDiscount($('discount-number').value));
@@ -1485,6 +1540,172 @@
    if(document.hidden&&liveActive){stopLive();liveMessage('Fotocamera fermata perché l’app non è in primo piano. Tocca «Avvia scanner» per riprendere.');}
  });
  window.addEventListener('pagehide',()=>{if(liveActive)stopLive();});
+
+ // Comandi vocali: lavora sulla stessa lista e sugli stessi conteggi di scanner e scontrino.
+ let voiceRecognition=null,voiceListening=false,voiceHadResult=false,voiceLastId=null,voiceGuard='';
+ const VOICE_WORDS={zero:0,un:1,uno:1,una:1,primo:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,tredici:13,quattordici:14,quindici:15,sedici:16,diciassette:17,diciotto:18,diciannove:19,venti:20,ventuno:21,ventidue:22,ventitre:23,ventiquattro:24,venticinque:25,ventisei:26,ventisette:27,ventotto:28,ventinove:29,trenta:30,quaranta:40,cinquanta:50,sessanta:60,settanta:70,ottanta:80,novanta:90,cento:100};
+ function voiceNorm(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
+ function voiceWordInt(tok){
+   const t=voiceNorm(tok).replace(/[^a-z0-9]/g,'');
+   if(/^\d+$/.test(t))return Number(t);
+   if(Object.prototype.hasOwnProperty.call(VOICE_WORDS,t))return VOICE_WORDS[t];
+   const tens=['vent','trent','quarant','cinquant','sessant','settant','ottant','novant'];
+   for(let i=0;i<tens.length;i++){
+     const stem=tens[i],ten=(i+2)*10;
+     if(t.startsWith(stem)&&t.length>stem.length){
+       const rest=t.slice(stem.length).replace(/^i/,'').replace(/^a/,'');
+       for(const [w,n] of Object.entries(VOICE_WORDS))if(n>0&&n<10&&rest===w)return ten+n;
+     }
+   }
+   return null;
+ }
+ function voiceFindMoney(sentence){
+   const t=voiceNorm(sentence);
+   const unit='(?:\\d{1,4}|[a-z]{2,20})';
+   const candidates=[];
+   function put(m,cents,rank){if(Number.isInteger(cents)&&cents>=0&&cents<=9999999)candidates.push({cents,start:m.index,end:m.index+m[0].length,rank});}
+   const decimal=/\b(\d{1,4})\s*[,\.]\s*(\d{1,2})\b/g;
+   for(const m of t.matchAll(decimal))put(m,Number(m[1])*100+Number(m[2].padEnd(2,'0')),4);
+   const euroR=new RegExp('\\b('+unit+')\\s*(?:euro|euri|€)(?:\\s+(?:e|ed)\\s+('+unit+')(?:\\s*(?:centesimi|cent))?)?', 'g');
+   for(const m of t.matchAll(euroR)){
+     const major=voiceWordInt(m[1]); if(major===null)continue;
+     let minor=0;
+     if(m[2]){const n=voiceWordInt(m[2]);if(n===null||n>99)continue;minor=n; }
+     put(m,major*100+minor,3);
+   }
+   const commaR=new RegExp('\\b('+unit+')\\s+(?:virgola|punto)\\s+('+unit+')\\b','g');
+   for(const m of t.matchAll(commaR)){
+     const a=voiceWordInt(m[1]),b=voiceWordInt(m[2]);if(a===null||b===null||b>99)continue;
+     put(m,a*100+(/^\d$/.test(m[2])?b*10:b),3);
+   }
+   const bareR=new RegExp('\\b('+unit+')\\s+e\\s+('+unit+')\\b','g');
+   for(const m of t.matchAll(bareR)){
+     const a=voiceWordInt(m[1]),b=voiceWordInt(m[2]);
+     if(a===null||b===null||a>999||b>99)continue;
+     if(!/\b(?:prezzo|costa|costano|pagare|finale|scontat|euro|€|al\s+pezzo|a\s+soli)\b/i.test(t) && !/\b(euro|euri)\b/.test(t))continue;
+     put(m,a*100+b,1);
+   }
+   // «banane 1,80», «prezzo 2»: i numeri senza valuta sono ammessi con prudenza.
+   if(!candidates.length){
+     for(const m of t.matchAll(/\b(?:prezzo\s*(?:finale|originale)?\s*|a\s+|costa\s+|costano\s+)(\d{1,4})\b/g)){
+       if(!/\b(?:kg|chilo|etto|grammi|iva)\b/.test(t.slice(m.index,m.index+35)))put(m,Number(m[1])*100,1);
+     }
+   }
+   candidates.sort((a,b)=>b.rank-a.rank || a.start-b.start);
+   return candidates[0]||null;
+ }
+ function voiceFindDiscount(text){
+   const s=voiceNorm(text).replace(/per\s+cento/g,'percento');
+   const u='(\\d{1,3}|[a-z]{2,16})';let m;
+   m=new RegExp('(?:sconto|ribasso|meno|scontato\\s+del|scontata\\s+del)\\s*(?:del|di|del\\s+)?\\s*'+u+'\\s*(?:%|percento)','i').exec(s)
+    ||new RegExp(u+'\\s*(?:%|percento)\\s*(?:di\\s+)?(?:sconto|meno)','i').exec(s);
+   if(!m)return 0;
+   const n=voiceWordInt(m[1]);return n!==null&&n>0&&n<=100?n:0;
+ }
+ function voiceQuantity(t){
+   let m=/(?:quantita|quantita'|pezzi|confezioni|unita)\s*(\d{1,3}|[a-z]{2,18})\b/.exec(t)
+       ||/\b(?:x|per)\s*(\d{1,3})\b/.exec(t);
+   if(m){const n=voiceWordInt(m[1]);if(n>0&&n<=999)return n;}
+   m=/^(?:aggiungi\s+|metti\s+|inserisci\s+)?(?:al\s+carrello\s+)?(\d{1,2}|due|tre|quattro|cinque|sei|sette|otto|nove|dieci)\s+(?!euro|euri|€)/.exec(t);
+   if(m){const n=voiceWordInt(m[1]);if(n>1&&n<=10)return n;}
+   return 1;
+ }
+ function voiceParse(text){
+   const t=voiceNorm(text).replace(/\s+/g,' ').trim();
+   const price=voiceFindMoney(t),pct=voiceFindDiscount(t);
+   const saysAdd=/\b(?:aggiungi|inserisci|metti|registra|conferma)\b.*\b(?:carrello|lista|spesa)\b|\b(?:aggiungilo|inseriscilo)\b/.test(t);
+   const perKg=/\b(?:al\s+(?:chilo|kg|etto)|per\s+(?:kg|chilo|etto)|€\s*\/\s*kg)\b/.test(t);
+   const final=/\b(?:finale|gia\s+scontat|scontat[ioa]\s+a|lo\s+pago|da\s+pagare|pagato|pago|costa\s+ora|ora\s+costa|prezzo\s+netto)\b/.test(t);
+   const original=/\b(?:prezzo\s+originale|prezzo\s+iniziale|prima\s+costava|prezzo\s+pieno|prezzo\s+di\s+listino|prima\s+dello\s+sconto)\b/.test(t);
+   let nameEnd=price?price.start:t.length;
+   const stop=t.slice(0,nameEnd).search(/\b(?:prezzo|costa|costano|sconto|scontate|scontati|scontata|scontato|in\s+offerta|quantita|pezzi|confezioni)\b/);
+   if(stop>=0)nameEnd=Math.min(nameEnd,stop);
+   let name=t.slice(0,nameEnd)
+      .replace(/^\s*(?:ok\s+|ehi\s+|allora\s+|per\s+favore\s+|aggiungi\s+(?:al\s+carrello\s+)?|metti\s+(?:nel\s+carrello\s+)?|inserisci\s+(?:nel\s+carrello\s+)?|registra\s+)+/,'')
+      .replace(/^(?:\d{1,2}|due|tre|quattro|cinque|sei|sette|otto|nove|dieci)\s+(?!euro|euri)/,'')
+      .replace(/\b(?:a|al|alla|per|prezzo|di|il)\s*$/,'')
+      .replace(/\b(?:una|un)\s*$/,'').replace(/[^a-zàèéìòù0-9\s'\-]/gi,' ').replace(/\s+/g,' ').trim();
+   if(!name || /^(?:euro|euri|prezzo|carrello|lista|spesa)$/.test(name))name='';
+   name=name.slice(0,90);if(name)name=name[0].toUpperCase()+name.slice(1);
+   const mode=(pct>0&&!final)?'original':'final';
+   const uncertainDiscount=pct>0&&!final&&!original;
+   const hasPrice=price?.cents!==undefined;
+   return {text:t,name,qty:voiceQuantity(t),cents:hasPrice?price.cents:null,pct,mode,autoAdd:saysAdd&&!!name&&hasPrice&&!perKg&&!uncertainDiscount,perKg,uncertainDiscount};
+ }
+ function voiceUpdatePreview(){
+   const cents=parsePrice($('voice-price').value),pct=validPercent($('voice-pct').value||'0'),qty=Number($('voice-qty').value);
+   const final=$('voice-kind').value==='final';
+   if(!Number.isInteger(qty)||qty<1||qty>999||cents===null||pct===null){$('voice-preview-result').textContent='Controlla prezzo, sconto e quantità.';return;}
+   const net=final?cents:Math.round(cents*(100-pct)/100);
+   $('voice-preview-result').textContent='Totale del prodotto: '+money(net*qty)+' · '+(final?'Prezzo già finale: nessun altro sconto.':('Sconto del '+pct+'% calcolato una sola volta.'));
+ }
+ function voiceProposal(res,fromMic=false){
+   $('voice-review').hidden=false;
+   $('voice-name').value=res.name;
+   $('voice-price').value=res.cents===null?'':(res.cents/100).toFixed(2).replace('.',',');
+   $('voice-qty').value=res.qty;$('voice-pct').value=res.pct;$('voice-kind').value=res.mode;
+   $('voice-alert').textContent=res.perKg?'⚠️ Hai comunicato un prezzo al chilo. Inserisci invece l’importo finale da pagare per questo prodotto.':
+      res.uncertainDiscount?'⚠️ È stato detto uno sconto, ma non è chiaro se il prezzo sia prima o dopo lo sconto. Controlla la scelta «Il prezzo comunicato è…».':
+      res.name&&res.cents!==null?'Nome e prezzo proposti: puoi confermarli oppure correggerli.':'⚠️ Non ho riconosciuto nome e prezzo con sicurezza: correggili prima di aggiungere.';
+   voiceUpdatePreview();
+   if(fromMic && res.autoAdd){voiceAdd(true);}
+   else {$('voice-status').textContent=res.autoAdd?'Comando capito. Controlla e conferma.':'Frase elaborata. Verifica i campi prima di aggiungere.';}
+ }
+ function voiceAdd(spoken=false){
+   const name=$('voice-name').value.trim(),cents=parsePrice($('voice-price').value),qty=Number($('voice-qty').value),pct=validPercent($('voice-pct').value||'0');
+   if(!name||cents===null||!Number.isInteger(qty)||qty<1||qty>999||pct===null){$('voice-alert').textContent='⚠️ Prima di aggiungere servono nome, prezzo e quantità validi.';return false;}
+   const final=$('voice-kind').value==='final';
+   const key=name.toLowerCase()+'|'+cents+'|'+qty+'|'+pct+'|'+final;
+   if(spoken&&key===voiceGuard){$('voice-status').textContent='Questa lettura è già stata inserita. Tocca «Parla ora» per un nuovo prodotto.';return false;}
+   const item={id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:name.slice(0,90),cents,qty,productDiscount:final?0:pct,lockedFinal:final,skipGeneralDiscount:!final&&pct>0,source:'voice'};
+   state.items.push(item);voiceLastId=item.id;voiceGuard=key;save();render();
+   $('voice-undo').hidden=false;$('voice-review').hidden=true;
+   $('voice-status').textContent='✅ '+name+' aggiunto: '+money((final?cents:unitNet(item))*qty)+'. Se il prezzo non è giusto, premi «Annulla ultimo inserimento vocale».';
+   if(spoken)showToast('Aggiunto con la voce · '+money((final?cents:unitNet(item))*qty));
+   else showToast('Prodotto aggiunto al carrello');
+   return true;
+ }
+ function voiceInterpret(fromMic=false){
+   const txt=$('voice-text').value.trim();if(!txt){$('voice-status').textContent='Prima pronuncia o detta una frase.';return;}
+   if(/\b(?:annulla\s+ultimo|elimina\s+ultimo|cancella\s+ultimo)\b/.test(voiceNorm(txt))){voiceUndo();return;}
+   voiceProposal(voiceParse(txt),fromMic);
+ }
+ function voiceUndo(){
+   if(!voiceLastId){$('voice-status').textContent='Non c’è un inserimento vocale da annullare.';return;}
+   const found=state.items.some(x=>x.id===voiceLastId);
+   state.items=state.items.filter(x=>x.id!==voiceLastId);voiceLastId=null;voiceGuard='';save();render();$('voice-undo').hidden=true;
+   $('voice-status').textContent=found?'Ultimo prodotto vocale eliminato.':'Prodotto già eliminato.';
+ }
+ function voiceStop(){if(voiceRecognition&&voiceListening){try{voiceRecognition.stop();}catch(e){}}}
+ $('voice-start').addEventListener('click',()=>{
+   if(voiceListening)return;
+   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+   if(!R){$('voice-status').textContent='Questo browser non permette il riconoscimento diretto. Tocca la casella «Frase riconosciuta», usa il microfono della tastiera iPhone e poi «Interpreta frase».';$('voice-text').focus();return;}
+   if(liveActive)stopLive(); // iOS: fotocamera e microfono non devono competere.
+   voiceGuard='';voiceHadResult=false;
+   try{
+     const r=new R();voiceRecognition=r;r.lang='it-IT';r.continuous=false;r.interimResults=false;r.maxAlternatives=1;
+     r.onstart=()=>{voiceListening=true;$('voice-start').textContent='🎙️ Sto ascoltando…';$('voice-start').disabled=true;$('voice-stop').disabled=false;$('voice-status').textContent='Parla ora: nome, prezzo finale e «aggiungi al carrello».';};
+     r.onresult=e=>{
+       const transcript=Array.from(e.results).map(x=>x[0]?.transcript||'').join(' ').trim();
+       if(!transcript)return;voiceHadResult=true;$('voice-text').value=transcript;voiceInterpret(true);
+     };
+     r.onerror=e=>{
+       const er=e?.error||'errore';
+       $('voice-status').textContent=er==='not-allowed'?'Microfono non autorizzato. Abilitalo per Safari oppure usa la dettatura della tastiera.':
+         er==='no-speech'?'Non ho sentito parole. Premi ancora «Parla ora» e riprova.':
+         'Riconoscimento vocale non disponibile ('+er+'). Puoi usare il microfono della tastiera iPhone.';
+     };
+     r.onend=()=>{voiceListening=false;$('voice-start').disabled=false;$('voice-start').textContent='🎙️ Parla ora';$('voice-stop').disabled=true;voiceRecognition=null;if(!voiceHadResult&&!$('voice-status').textContent.includes('Microfono')&&!$('voice-status').textContent.includes('Riconoscimento'))$('voice-status').textContent='Ascolto terminato. Premi «Parla ora» o usa la dettatura della tastiera.';};
+     r.start();
+   }catch(e){voiceListening=false;$('voice-start').disabled=false;$('voice-stop').disabled=true;$('voice-status').textContent='La modalità voce non è disponibile qui. Puoi dettare la frase con il microfono della tastiera iPhone.';$('voice-text').focus();}
+ });
+ $('voice-stop').addEventListener('click',voiceStop);
+ $('voice-parse').addEventListener('click',()=>voiceInterpret(false));
+ $('voice-add').addEventListener('click',()=>voiceAdd(false));
+ $('voice-undo').addEventListener('click',voiceUndo);
+ for(const id of ['voice-name','voice-price','voice-qty','voice-pct','voice-kind'])$(id).addEventListener('input',voiceUpdatePreview);
+
  render();
  })();
  </script>
