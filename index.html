@@ -90,6 +90,9 @@
     @media(max-width:370px){.live-actions{flex-wrap:wrap}.live-actions .secondary{flex:1}}
 
     .receipt-section{border:1.5px solid #bed2ef}
+    .receipt-howto{background:#ecf3ff;border:1px solid #bfd4fa;padding:12px 14px;border-radius:14px;line-height:1.55;font-size:13px;color:#244a82;margin:12px 0}
+    .receipt-count{font-size:13px;font-weight:750;color:#285aaf;margin:2px 0}
+    .receipt-shortcut{display:block;width:100%;margin-top:10px;text-align:center;border:1px solid #bfd2f7;border-radius:12px;background:#ebf3ff;color:#194ca1;font-size:14px;font-weight:750;padding:12px}
     .receipt-zone{display:grid;gap:12px}
     .receipt-zone .camera-label{background:#e8f2ff}
     .receipt-tools{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
@@ -191,21 +194,24 @@
    <p id="live-status" class="live-state" role="status" aria-live="polite">Scanner spento. Il carrello e i prezzi restano salvati.</p>
    <label class="live-toggle" for="live-auto"><input id="live-auto" type="checkbox" checked><span><strong>Aggiunta automatica</strong><br>Inserisce il prodotto solo quando nome e prezzo risultano coerenti in due letture. Negli altri casi chiede di verificare.</span></label>
    <div class="live-options"><button class="small-btn" id="live-retry" type="button" disabled>↻ Rileggi questo cartellino</button><span class="little">Niente doppioni nella stessa scansione</span></div>
+   <button type="button" class="receipt-shortcut" id="open-receipt">🧾 È uno scontrino? Leggi tutte le voci</button>
    <p class="live-pending" id="live-notice" hidden>⚠️ Il riconoscimento non può individuare tutti gli errori: verifica di tanto in tanto il totale. Per prezzi al kg e offerte poco chiare è prevista una conferma.</p>
    <div id="live-review-slot"></div>
   </section>
 
   <section class="section receipt-section" aria-labelledby="receipt-title" id="receipt-section">
    <div class="section-head"><h2 id="receipt-title">🧾 Controlla uno scontrino</h2><span class="live-tag">NUOVO</span></div>
-   <p class="hint">Fotografa <strong>uno scontrino intero</strong>: l’app prova a separare le righe dei prodotti dal totale finale. <strong>Non aggiunge nulla automaticamente.</strong> Puoi confrontare il totale con il carrello e, soltanto se vuoi, importare le righe dopo averle controllate.</p>
+   <p class="hint">Questa modalità cerca <strong>tutte le righe dello scontrino</strong>, separandole dal totale finale. <strong>Non aggiunge nulla automaticamente.</strong> Ti propone una lista da verificare e confronta la somma con il totale stampato.</p>
+   <div class="receipt-howto"><strong>Per scontrini lunghi:</strong> scatta la parte alta, poi quella centrale, infine quella bassa, <strong>una fotografia per volta</strong>. Avvicina il telefono finché il testo riempie la foto. L’app unirà le letture; puoi usare anche una foto singola se lo scontrino è corto. Inquadra una piccola sovrapposizione per non saltare righe.</div>
    <div class="receipt-zone" style="margin-top:13px">
     <div class="camera-zone">
-     <label class="camera-label" for="receipt-photo">📸 Scatta o scegli scontrino</label>
+     <label class="camera-label" for="receipt-photo">📸 Scatta o scegli una parte dello scontrino</label>
      <input class="camera-input" id="receipt-photo" type="file" accept="image/*">
      <img id="receipt-preview" class="receipt-preview" alt="Anteprima dello scontrino da leggere" hidden>
     </div>
-    <p class="receipt-alert" id="receipt-status" role="status" aria-live="polite">Per ottenere una lettura migliore fotografa lo scontrino diritto, ben illuminato e con tutto il testo visibile.</p>
-    <div class="receipt-tools"><button class="secondary" id="receipt-retry" type="button" disabled>↻ Rileggi lo scontrino</button></div>
+    <p class="receipt-count" id="receipt-count">Parti lette: 0</p>
+    <p class="receipt-alert" id="receipt-status" role="status" aria-live="polite">Inizia dalla parte alta. Per aggiungere altre parti, tocca di nuovo il pulsante della fotografia.</p>
+    <div class="receipt-tools"><button class="secondary" id="receipt-retry" type="button" disabled>↻ Rileggi ultima foto</button><button class="secondary" id="receipt-reset" type="button">Nuovo scontrino</button></div>
     <details class="receipt-details"><summary>Oppure incolla il testo dello scontrino</summary>
      <textarea class="receipt-hidden-text" id="receipt-text" aria-label="Testo dello scontrino" placeholder="Es.\nPANE 2,50\nLATTE 1,60\nTOTALE 4,10"></textarea>
      <button type="button" id="receipt-parse-text" class="secondary" style="width:100%;margin-top:7px">Analizza il testo</button>
@@ -217,7 +223,7 @@
      <div><span>Carrello attuale</span><strong id="receipt-cart-total">—</strong></div>
     </div>
     <p id="receipt-compare" class="receipt-alert"></p>
-    <p class="hint">Qui sotto puoi correggere i nomi, i prezzi <strong>finali</strong> e le quantità lette. Le righe di sconto, i pagamenti e il totale non sono prodotti.</p>
+    <p class="hint">Verifica che non manchino prodotti. Correggi nomi, prezzi finali e quantità. Sconti e pagamenti non sono prodotti; il riconoscimento può omettere o duplicare righe se la foto è sfocata.</p>
     <div id="receipt-lines"></div>
     <p id="receipt-sum" class="receipt-alert" aria-live="polite"></p>
     <label class="receipt-check" for="receipt-checked"><input id="receipt-checked" type="checkbox"><span>Ho verificato le righe e voglio aggiungerle al carrello. So che eventuali prodotti già presenti potrebbero essere duplicati.</span></label>
@@ -269,7 +275,8 @@
     <button type="button" class="focus-reset" id="reset-focus" hidden>Cancella selezioni e leggi tutta la foto</button>
    </div>
    <button class="primary" style="margin-top:12px" type="button" id="recognize" disabled>Riprova la lettura della foto</button>
-   <p class="hint">La lettura parte da sola quando scegli una foto (internet necessario al primo utilizzo). Riconosce gli sconti espliciti come «SCONTO 20%» o «−20%». Verifica se il prezzo è originale o già scontato per evitare il doppio sconto.</p>
+   <p class="hint">Questa lettura è pensata per un cartellino singolo, non per uno scontrino intero. La lettura parte quando scegli la foto.</p>
+   <button type="button" id="receipt-use-photo" class="receipt-shortcut" disabled>🧾 Usa questa foto per leggere lo scontrino</button>
    <label for="scan-text" class="step-label">Oppure incolla qui un prezzo o del testo</label>
    <textarea id="scan-text" placeholder="Esempio: LATTE INTERO 1,79 €"></textarea>
    <button class="secondary" style="margin-top:9px;width:100%" type="button" id="find-prices">Riconosci nome e prezzi nel testo</button>
@@ -663,7 +670,7 @@
  });
  $('photo').addEventListener('change',()=>{
    stopLive();placeReview('photo');
-   photoFile=$('photo').files?.[0]||null;imgLoaded=false;focusPoint=null;namePoint=null;discountPoint=null;updateFocus();
+   photoFile=$('photo').files?.[0]||null;$('receipt-use-photo').disabled=!photoFile;imgLoaded=false;focusPoint=null;namePoint=null;discountPoint=null;updateFocus();
    $('recognize').disabled=!photoFile;$('prices').replaceChildren();$('scan-text').value='';$('review').hidden=true;
    if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url;}
    $('preview-box').hidden=!photoFile;$('focus-help').hidden=!photoFile;$('reset-focus').hidden=!photoFile;$('scan-buttons').hidden=!photoFile;
@@ -724,6 +731,7 @@
  // --- Analisi scontrino separata e prudente: mai importare il totale come prodotto. ---
  const RECEIPT_KEY='la-mia-spesa-scontrini-controllati-v1';
  let receiptDraft=null,receiptTextSource='',receiptWorkerBusy=false,receiptFile=null;
+ let receiptScanParts=[],receiptScanKeys=[];
  let receiptImports=[];
  try{const old=JSON.parse(localStorage.getItem(RECEIPT_KEY));if(Array.isArray(old))receiptImports=old.filter(x=>typeof x==='string').slice(-30);}catch(e){}
  function receiptLines(text){return String(text||'').replace(/\r/g,'').split('\n').map(x=>x.replace(/[\u00a0\t]+/g,' ').trim()).filter(Boolean);}
@@ -746,7 +754,7 @@
      .map(m=>({raw:m[0],index:m.index,cents:parsePrice(m[0])})).filter(x=>x.cents!==null&&x.cents<=9999999);
  }
  function receiptSkipLine(line){
-   return /(?:^|\s)(?:P\.?\s*IVA|C\.?\s*F\.?|CODICE\s+FISCALE|REGISTRO|DOCUMENTO|SCONTRINO|CASSA|OPERATORE|DATA|ORA|PARTITA|TELEFONO|WWW\.|GRAZIE|ARRIVEDERCI|CODICE\s+ART|TRANSAZIONE|AUTORIZZAZIONE|NUMERO\s+DOCUMENTO|PUNTI|TESSERA|CLIENTE|IMPONIBILE|IVA|RESTO|CONTANTI|PAGATO|PAGAMENTO|BANCOMAT|MASTERCARD|VISA|CARTA\s+(?:DI|CREDITO|DEBITO)|POS|SUBTOTALE|RIEPILOGO|SCONTI?|RISPARMIO|BUONO|VOUCHER|COUPON|PRODOTTI\s+ACQUISTATI|ARTICOLI|ACQUISTI)\b/i.test(line)
+   return /(?:^|\s)(?:IMPORTO\s+(?:EURO|EUR|PAGATO)|P\.?\s*IVA|C\.?\s*F\.?|CODICE\s+FISCALE|REGISTRO|DOCUMENTO|SCONTRINO|CASSA|OPERATORE|DATA|ORA|PARTITA|TELEFONO|WWW\.|GRAZIE|ARRIVEDERCI|CODICE\s+ART|TRANSAZIONE|AUTORIZZAZIONE|NUMERO\s+DOCUMENTO|PUNTI|TESSERA|CLIENTE|IMPONIBILE|IVA|RESTO|CONTANTI|PAGATO|PAGAMENTO|BANCOMAT|MASTERCARD|VISA|CARTA\s+(?:DI|CREDITO|DEBITO)|POS|SUBTOTALE|RIEPILOGO|SCONTI?|RISPARMIO|BUONO|VOUCHER|COUPON|PRODOTTI\s+ACQUISTATI|ARTICOLI|ACQUISTI)\b/i.test(line)
      ||receiptTotalMarker(line)||/(?:^|\s)[-−]\s*\d+[,.]\d{2}\s*$/.test(line)
      ||/\b(?:\d{2}\/\d{2}\/\d{2,4}|\d{2}:\d{2})\b/.test(line);
  }
@@ -757,14 +765,17 @@
  }
  function parseReceipt(text){
    const lines=receiptLines(text),rows=[],notes=[];
-   let receiptTotal=null,totalScore=-1,pendingName='',discountLines=0,ambiguousRows=0;
+   let receiptTotal=null,totalScore=-1,pendingName='',discountLines=0,ambiguousRows=0,afterTotal=false;
    for(let i=0;i<lines.length;i++){
      const line=lines[i],tokens=receiptMoneyTokens(line);
      if(receiptTotalMarker(line)&&tokens.length){
+       afterTotal=true;
        const score=(/\b(?:TOTALE|TOT)\b/i.test(line)?30:15)+(/\b(?:DA\s+PAGARE|COMPLESSIVO|DOCUMENTO|EURO)\b/i.test(line)?15:0)+i/Math.max(lines.length,1);
        if(score>=totalScore){receiptTotal=tokens[tokens.length-1].cents;totalScore=score;}
        pendingName='';continue;
      }
+     // Non confondere i dettagli del POS, del pagamento e dei punti con prodotti.
+     if(afterTotal)continue;
      if(/\b(?:SCONTO|RISPARMIO|COUPON|PROMOZIONE|BUONO\s+SCONTO)\b/i.test(line)&&tokens.length){discountLines++;pendingName='';continue;}
      if(receiptSkipLine(line)){pendingName='';continue;}
      if(!tokens.length){
@@ -790,7 +801,7 @@
    }
    if(discountLines)notes.push('Sono presenti '+discountLines+' righe di sconto o buoni: controlla i prezzi finali e la differenza con il totale.');
    if(ambiguousRows)notes.push(ambiguousRows+' righe con quantità, peso o prezzi multipli da controllare.');
-   if(receiptTotal===null)notes.push('Totale finale non identificato: confronto non disponibile.');
+   if(receiptTotal===null)notes.push('Totale finale non identificato: fotografa anche la parte bassa dello scontrino.');
    if(!rows.length)notes.push('Non riesco a separare le righe dei prodotti: nessun import automatico.');
    return {rows,totalCents:receiptTotal,notes,source:text,fingerprint:receiptFingerprint(text)};
  }
@@ -873,10 +884,29 @@
    renderReceiptDraft();
    receiptStatus(receiptDraft.rows.length?'Ho separato '+receiptDraft.rows.length+' possibili prodotti. Controlla la somma, correggi le righe e scegli se importarle.':'Ho individuato solo parti dello scontrino. Non inserirò il totale come prodotto.',receiptDraft.rows.length?'good':'warn');
  }
+ // Le parti di uno scontrino lungo vengono lette singolarmente: OCR su lettere più grandi.
+ // In caso di sovrapposizione identica, le righe ripetute non vengono contate due volte.
+ function mergeReceiptScans(parts){
+   let merged=[];
+   const key=line=>plain(line).replace(/\s+/g,' ');
+   for(const part of parts){
+     const current=receiptLines(part);
+     let overlap=0;
+     const max=Math.min(14,merged.length,current.length);
+     for(let n=max;n>=1;n--){
+       if(merged.slice(-n).every((x,i)=>key(x)===key(current[i]))){overlap=n;break;}
+     }
+     merged.push(...current.slice(overlap));
+   }
+   return merged.join('\n');
+ }
+ function updateReceiptCount(){
+   $('receipt-count').textContent='Parti lette: '+receiptScanParts.length+' · '+(receiptDraft?.rows.length||0)+' possibili voci prodotto';
+ }
  function receiptCanvas(img){
    const w=img.naturalWidth,h=img.naturalHeight;
-   // Scontrini lunghi: preserva risoluzione per le righe minute, limitando la memoria su iPhone.
-   const scale=Math.min(2.1,2400/Math.max(1,w),3800/Math.max(1,h));
+   // Favorisci scatti ravvicinati: limita le dimensioni per proteggere la memoria dell'iPhone.
+   const scale=Math.min(2.2,2600/Math.max(1,w),3900/Math.max(1,h));
    const canvas=document.createElement('canvas');
    canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));
    const ctx=canvas.getContext('2d',{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
@@ -884,10 +914,9 @@
  }
  async function recognizeReceipt(){
    if(!receiptFile||receiptWorkerBusy)return;
-   stopLive();
-   receiptWorkerBusy=true;
-   $('receipt-retry').disabled=true;
-   receiptStatus('Leggo lo scontrino. La prima volta potrebbe essere necessario scaricare il riconoscimento italiano…');
+   stopLive();receiptWorkerBusy=true;
+   $('receipt-retry').disabled=true;$('receipt-photo').disabled=true;
+   receiptStatus('Leggo la fotografia '+(receiptScanParts.length+1)+'. Tieni presente che le righe troppo piccole potrebbero non essere leggibili…');
    let worker=null,cv=null;
    try{
      const img=$('receipt-preview');
@@ -898,28 +927,57 @@
      await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.AUTO,preserve_interword_spaces:'1'});
      const r=await worker.recognize(cv);
      const txt=(r?.data?.text||'').trim();
-     $('receipt-text').value=txt;
-     if(!txt){receiptStatus('Non riesco a leggere il testo. Prova con una foto più nitida o incolla il testo dello scontrino.','warn');$('receipt-review').hidden=true;}
-     else handleReceiptText(txt);
-   }catch(e){receiptStatus('Lettura non riuscita. Riprova con una foto più nitida oppure incolla il testo dello scontrino.','warn');}
+     if(!txt){receiptStatus('Questa foto non è leggibile. Avvicina la fotocamera alla stampa e riprova: nessuna nuova parte è stata aggiunta.','warn');return;}
+     const photoKey=[receiptFile.name,receiptFile.size,receiptFile.lastModified].join('|');
+     const oldIndex=receiptScanKeys.indexOf(photoKey);
+     if(oldIndex>=0){receiptScanParts[oldIndex]=txt;}
+     else{receiptScanParts.push(txt);receiptScanKeys.push(photoKey);}
+     const all=mergeReceiptScans(receiptScanParts);
+     $('receipt-text').value=all;
+     handleReceiptText(all);
+     updateReceiptCount();
+     receiptStatus('✅ Parte '+(oldIndex>=0?oldIndex+1:receiptScanParts.length)+' letta. '+receiptDraft.rows.length+' possibili voci. '+
+       (receiptDraft.totalCents===null?'Ora fotografa anche il resto, soprattutto la parte con il totale.':'Controlla i prodotti e confronta il totale. Puoi aggiungere altre fotografie.'), 'good');
+   }catch(e){receiptStatus('Lettura non riuscita. Riprova avvicinando il telefono o utilizza il testo riconosciuto da Foto.','warn');}
    finally{
      try{if(worker)await worker.terminate();}catch(e){}
      if(cv){cv.width=cv.height=0;}
-     receiptWorkerBusy=false;$('receipt-retry').disabled=!receiptFile;
+     receiptWorkerBusy=false;$('receipt-retry').disabled=!receiptFile;$('receipt-photo').disabled=false;
    }
  }
- $('receipt-photo').addEventListener('change',()=>{
-   receiptFile=$('receipt-photo').files?.[0]||null;
+ function selectReceiptPhoto(file){
+   if(!file||receiptWorkerBusy)return;
+   receiptFile=file;
    const img=$('receipt-preview');
    if(img.dataset.url){URL.revokeObjectURL(img.dataset.url);delete img.dataset.url;}
-   $('receipt-review').hidden=true;receiptDraft=null;
-   $('receipt-retry').disabled=!receiptFile;
-   if(receiptFile){img.dataset.url=URL.createObjectURL(receiptFile);img.src=img.dataset.url;img.hidden=false;receiptStatus('Foto caricata: preparo la lettura…');}
-   else{img.hidden=true;img.removeAttribute('src');}
+   $('receipt-retry').disabled=false;
+   img.dataset.url=URL.createObjectURL(file);img.src=img.dataset.url;img.hidden=false;
+   receiptStatus('Fotografia caricata: inizio a leggere questa parte…');
+ }
+ $('receipt-photo').addEventListener('change',()=>{
+   const file=$('receipt-photo').files?.[0]||null;
+   if(file)selectReceiptPhoto(file);
+   // Consenti di fotografare anche una nuova parte con lo stesso nome file.
+   $('receipt-photo').value='';
  });
  $('receipt-preview').addEventListener('load',()=>{if(receiptFile)recognizeReceipt();});
  $('receipt-retry').addEventListener('click',recognizeReceipt);
- $('receipt-parse-text').addEventListener('click',()=>{stopLive();handleReceiptText($('receipt-text').value);});
+ $('receipt-reset').addEventListener('click',()=>{
+   if(receiptWorkerBusy)return;
+   receiptScanParts=[];receiptScanKeys=[];receiptFile=null;receiptTextSource='';receiptDraft=null;
+   $('receipt-review').hidden=true;$('receipt-text').value='';$('receipt-retry').disabled=true;
+   const img=$('receipt-preview');if(img.dataset.url){URL.revokeObjectURL(img.dataset.url);delete img.dataset.url;}
+   img.hidden=true;img.removeAttribute('src');updateReceiptCount();
+   receiptStatus('Nuovo scontrino: fotografa la parte alta, poi quella centrale, infine quella bassa.');
+ });
+ $('open-receipt').addEventListener('click',()=>{stopLive();$('receipt-section').scrollIntoView({behavior:'smooth',block:'start'});});
+ $('receipt-use-photo').addEventListener('click',()=>{
+   if(!photoFile)return;
+   stopLive();$('review').hidden=true;
+   selectReceiptPhoto(photoFile);
+   $('receipt-section').scrollIntoView({behavior:'smooth',block:'start'});
+ });
+ $('receipt-parse-text').addEventListener('click',()=>{stopLive();receiptScanParts=[];receiptScanKeys=[];handleReceiptText($('receipt-text').value);updateReceiptCount();});
  $('receipt-checked').addEventListener('change',renderReceiptComparison);
  $('receipt-import').addEventListener('click',()=>{
    if(!receiptDraft||!$('receipt-checked').checked)return;
@@ -1010,9 +1068,12 @@
      const chosen=focusPoint && prices.length ? prices[0] : (rankedPrices[0]||prices[0]||null);
      const offer=buildOffer(combinedText,chosen?chosen.cents:null);
      if(name||chosen){
+       if(chosen && chosen.cents>=3000){
+         $('photo-status').textContent='⚠️ Ho letto un importo elevato: se la foto è uno scontrino usa «Usa questa foto per leggere lo scontrino», invece di confermare un singolo prodotto.';
+       }
        showReview(name,offer.baseCents??(chosen?chosen.cents:null),true,offer);
        if(chosen && !$('product-price').value.trim())$('product-price').value=(chosen.cents/100).toFixed(2).replace('.',',');
-       $('photo-status').textContent=(name?'Nome possibile: '+name+'. ':'Nome non leggibile: inseriscilo tu. ')
+       if(!chosen || chosen.cents<3000)$('photo-status').textContent=(name?'Nome possibile: '+name+'. ':'Nome non leggibile: inseriscilo tu. ')
          +(chosen?'Prezzo possibile: '+money(offer.baseCents??chosen.cents)+'. ':'Prezzo non leggibile: inseriscilo tu. ')
          +(offer.found?' '+offer.note:' Nessuno sconto promozionale sicuro rilevato.')
          +' Verifica i campi e conferma.';
@@ -1137,6 +1198,7 @@
    if(nonUnit.length>1&&original===null&&final===null){sure=false;reason='Più prezzi possibili.';}
    if(!chosen.source.includes('importo')&&genericUnique!==1&&final===null&&original===null){sure=false;reason='Non è chiaro quale sia il prezzo finale.';}
    if(base<=0||base>200000||net<=0){sure=false;reason='Importo fuori intervallo: verifica.';}
+   if(net>3000){sure=false;reason='Importo elevato per un singolo articolo: verifica che non sia il totale di uno scontrino.';}
    const key=plain(name||'?')+'|'+base+'|'+pct+'|'+net;
    return {name,cents:base,percent:pct,net,confidence:ocrConfidence,sure,reason,key,text,offer};
  }
