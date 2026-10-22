@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="La mia spesa">
-  <meta name="description" content="La mia spesa: lettura automatica del prezzo da una foto con conferma prima di aggiungere il prodotto.">
+  <meta name="description" content="La mia spesa: scanner continuo dei cartellini, lettura intelligente di prezzi e sconti e carrello automatico con controlli di sicurezza.">
   <title>La mia spesa</title>
   <style>
     :root{color-scheme:light;--ink:#172c47;--muted:#65778b;--bg:#f5f7fc;--card:#fff;--line:#e5eaf1;--blue:#3669e8;--blue2:#174cbd;--radius:22px}
@@ -64,6 +64,30 @@
     .empty{text-align:center;padding:25px 7px;color:var(--muted);font-size:14px;line-height:1.5}
     .empty-symbol{font-size:35px;margin-bottom:5px}
     .tools{display:flex;gap:8px;justify-content:space-between;margin-top:12px;flex-wrap:wrap}
+    .live-section{border:1.5px solid #b2cafa}
+    .live-header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .live-header h2{margin:0}
+    .live-tag{font-size:11px;letter-spacing:.02em;padding:6px 10px;border-radius:999px;background:#e5f4ec;color:#176c45;font-weight:800}
+    .live-view{position:relative;background:#0e1d32;overflow:hidden;border-radius:18px;aspect-ratio:4/3;margin:14px 0 12px;display:grid;place-items:center}
+    .live-view video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+    .live-view:not(.on) video{display:none}
+    .live-placeholder{text-align:center;color:#eff5ff;line-height:1.55;padding:20px;font-size:14px}
+    .live-view.on .live-placeholder{display:none}
+    .live-guide{position:absolute;inset:15% 7%;border:2px solid rgba(255,255,255,.87);border-radius:17px;box-shadow:0 0 0 999px rgba(8,20,37,.17);pointer-events:none;display:none}
+    .live-guide:after{content:'Inquadra un cartellino alla volta';position:absolute;bottom:-34px;left:0;right:0;text-align:center;color:#fff;font-size:11px;font-weight:800;text-shadow:0 1px 5px #000}
+    .live-view.on .live-guide{display:block}
+    .live-actions{display:flex;gap:9px;align-items:stretch}
+    .live-actions .primary{flex:1}
+    .live-actions .secondary{flex:none;min-width:90px}
+    .live-state{margin:12px 0 0;padding:11px 12px;border-radius:12px;background:#f0f5fe;color:#224c86;font-size:13px;line-height:1.5;font-weight:700;min-height:48px}
+    .live-state.good{background:#e7f6ec;color:#145d3b}
+    .live-state.warn{background:#fff3de;color:#865108}
+    .live-toggle{margin:12px 0 0;display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4;font-weight:650}
+    .live-toggle input{width:20px;height:20px;flex:none;accent-color:var(--blue);margin:0}
+    .live-options{margin-top:10px;display:flex;align-items:center;gap:7px;justify-content:space-between;flex-wrap:wrap}
+    .live-options .small-btn{color:#315aa0}
+    .live-pending{border-radius:12px;border:1px solid #f3d79c;padding:9px 11px;font-size:12px;background:#fff9ed;margin:12px 0 0;line-height:1.45;color:#725115}
+    @media(max-width:370px){.live-actions{flex-wrap:wrap}.live-actions .secondary{flex:1}}
     .camera-zone{border:1.5px dashed #b9cae6;border-radius:17px;background:#f8fbff;padding:16px;text-align:center}
     .camera-zone p{font-size:13px;color:var(--muted);margin:9px 0 13px;line-height:1.5}
     .camera-input{display:none}
@@ -87,6 +111,14 @@
     .confirm-card label{margin-bottom:7px}
     .confirm-card .review-hint{color:#476791;font-size:12px;margin:0 0 11px;line-height:1.4}
     .confirm-card .secondary{width:100%;margin-top:9px}
+    .product-promo{margin-top:12px;display:flex;gap:12px;align-items:flex-end;justify-content:space-between}
+    .product-promo>div{max-width:150px}
+    .promo-hint{color:var(--muted);font-size:12px;line-height:1.35;margin:0;flex:1}
+    .review-discount-row{display:flex;align-items:end;gap:12px;margin:3px 0 12px}
+    .review-discount-row>div{width:125px;flex:none}
+    .review-price-result{font-size:13px;line-height:1.5;background:#fff;border:1px solid #d1e0fa;border-radius:12px;padding:10px 12px;margin:10px 0 13px;color:#294c80}
+    .review-price-result strong{font-size:17px;color:#163b7c}
+    .promo-chip{background:#ecf9f0;color:#166633;border:1px solid #9cd8af;border-radius:999px;font-size:12px;font-weight:800;padding:6px 10px;display:inline-block;margin-top:5px}
     .sr-only{position:absolute!important;height:1px;width:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @media(max-width:370px){.confirm-grid{grid-template-columns:minmax(0,1fr) 100px}}
 
@@ -116,6 +148,21 @@
     <div><span>Prodotti</span><strong id="count">0</strong></div>
    </div>
   </section>
+  <section class="section live-section" aria-labelledby="live-title">
+   <div class="live-header"><h2 id="live-title">📷 Scanner automatico</h2><span class="live-tag">NOVITÀ</span></div>
+   <p class="hint">Apri la fotocamera una sola volta, poi inquadra un cartellino alla volta. La scansione avviene senza scattare foto e la lettura viene controllata due volte.</p>
+   <div class="live-view" id="live-view">
+    <video id="live-video" autoplay muted playsinline webkit-playsinline aria-label="Anteprima fotocamera per leggere i cartellini"></video>
+    <div class="live-placeholder">📷<div style="margin-top:8px">Tocca <strong>Avvia scanner</strong> per aprire la fotocamera posteriore.</div></div>
+    <div class="live-guide" aria-hidden="true"></div>
+   </div>
+   <div class="live-actions"><button class="primary" id="live-start" type="button">Avvia scanner</button><button class="secondary" id="live-stop" type="button" disabled>Ferma</button></div>
+   <p id="live-status" class="live-state" role="status" aria-live="polite">Scanner spento. Il carrello e i prezzi restano salvati.</p>
+   <label class="live-toggle" for="live-auto"><input id="live-auto" type="checkbox" checked><span><strong>Aggiunta automatica</strong><br>Inserisce il prodotto solo quando nome e prezzo risultano coerenti in due letture. Negli altri casi chiede di verificare.</span></label>
+   <div class="live-options"><button class="small-btn" id="live-retry" type="button" disabled>↻ Rileggi questo cartellino</button><span class="little">Niente doppioni nella stessa scansione</span></div>
+   <p class="live-pending" id="live-notice" hidden>⚠️ Il riconoscimento non può individuare tutti gli errori: verifica di tanto in tanto il totale. Per prezzi al kg e offerte poco chiare è prevista una conferma.</p>
+   <div id="live-review-slot"></div>
+  </section>
   <section class="section" aria-labelledby="add-title">
    <div class="section-head"><h2 id="add-title">＋ Aggiungi prodotto</h2></div>
    <form id="product-form" autocomplete="off">
@@ -123,13 +170,14 @@
      <div><label for="product-name">Nome prodotto</label><input type="text" id="product-name" placeholder="Es. Pane" maxlength="90" required></div>
      <div><label for="product-price">Prezzo (€)</label><input type="text" id="product-price" inputmode="decimal" placeholder="2,50" required></div>
     </div>
+    <div class="product-promo"><div><label for="product-discount">Sconto prodotto (%)</label><input type="number" id="product-discount" min="0" max="100" step="1" value="0"></div><p class="promo-hint">Facoltativo. Da usare solo sul prezzo originale, non su quello già scontato.</p></div>
     <div class="form-row"><div class="qty"><label for="product-qty">Quantità</label><input type="number" id="product-qty" min="1" max="999" step="1" value="1" required></div><button class="primary" type="submit">Aggiungi alla lista</button></div>
    </form>
   </section>
   <section class="section" aria-labelledby="discount-title">
    <div class="section-head"><h2 id="discount-title">🏷️ Sconto sulla spesa</h2></div>
    <div class="discount"><input aria-label="Regola percentuale di sconto" id="discount-slider" type="range" min="0" max="100" step="1" value="0"><div class="discount-number"><input aria-label="Sconto percentuale" id="discount-number" type="number" inputmode="numeric" min="0" max="100" step="1" value="0"></div></div>
-   <p class="hint">Lo sconto si applica al totale di tutti i prodotti.</p>
+   <p class="hint">Lo sconto generale si applica dopo gli eventuali sconti dei singoli prodotti. Non applicare due volte la stessa promozione.</p>
   </section>
   <section class="section" aria-labelledby="list-title">
    <div class="section-head"><h2 id="list-title">🧾 La lista</h2><span class="little" id="line-count">0 voci</span></div>
@@ -138,40 +186,45 @@
    <div class="tools" id="list-tools" hidden><button class="secondary" type="button" id="export">Esporta lista</button><button class="small-btn" type="button" id="clear">Svuota lista</button></div>
   </section>
   <section class="section" aria-labelledby="photo-title">
-   <div class="section-head"><h2 id="photo-title">📷 Leggi il prezzo da una foto</h2></div>
+   <div class="section-head"><h2 id="photo-title">📷 Leggi prezzo e sconto da una foto</h2></div>
    <div class="camera-zone">
     <span aria-hidden="true" style="font-size:31px">📸</span>
-    <p><strong>Scatta una foto:</strong> il prezzo verrà cercato e inserito automaticamente. Verifica l’importo prima di aggiungerlo alla lista. Se legge male, puoi selezionare nome e prezzo nella foto.</p>
+    <p><strong>Scatta una foto:</strong> l’app cerca nome, prezzo e sconto % sulla stessa etichetta. Controlla la proposta prima di aggiungere. Se legge male puoi selezionare una zona della foto.</p>
     <label for="photo" class="camera-label">Scatta o scegli foto</label>
     <input id="photo" class="camera-input" type="file" accept="image/*">
     <div id="preview-box" class="preview-box" hidden>
      <img id="preview" alt="Foto selezionata: tocca il punto dove compare il prezzo per ingrandirlo nella lettura">
      <div id="focus-box" class="focus-box" hidden></div>
      <div id="name-focus" class="focus-box name-focus" hidden></div>
+     <div id="discount-focus" class="focus-box" style="border-color:#54b17a;background:rgba(84,177,122,.16)" hidden></div>
     </div>
     <div id="scan-buttons" class="scan-buttons" hidden>
       <button type="button" class="scan-mode" id="choose-name">1. Seleziona il nome</button>
       <button type="button" class="scan-mode" id="choose-price">2. Seleziona il prezzo</button>
+      <button type="button" class="scan-mode" id="choose-discount">3. Seleziona lo sconto</button>
     </div>
-    <p id="focus-help" class="focus-help" hidden>Per migliorare la lettura, seleziona prima «Nome» e tocca il nome sulla fotografia. Poi seleziona «Prezzo» e tocca l'importo. Sono due tocchi sulla stessa foto.</p>
+    <p id="focus-help" class="focus-help" hidden>Se l’app legge male, tocca «Seleziona il nome», «Seleziona il prezzo» o «Seleziona lo sconto» e indica quel punto della fotografia, poi premi «Riprova».</p>
     <button type="button" class="focus-reset" id="reset-focus" hidden>Cancella selezioni e leggi tutta la foto</button>
    </div>
    <button class="primary" style="margin-top:12px" type="button" id="recognize" disabled>Riprova la lettura della foto</button>
-   <p class="hint">La lettura parte da sola quando scegli una foto (serve internet la prima volta). Sulle etichette con €/kg l’app preferisce la voce «Importo» se è leggibile. Controlla sempre il prezzo proposto.</p>
+   <p class="hint">La lettura parte da sola quando scegli una foto (internet necessario al primo utilizzo). Riconosce gli sconti espliciti come «SCONTO 20%» o «−20%». Verifica se il prezzo è originale o già scontato per evitare il doppio sconto.</p>
    <label for="scan-text" class="step-label">Oppure incolla qui un prezzo o del testo</label>
    <textarea id="scan-text" placeholder="Esempio: LATTE INTERO 1,79 €"></textarea>
    <button class="secondary" style="margin-top:9px;width:100%" type="button" id="find-prices">Riconosci nome e prezzi nel testo</button>
    <p class="status" id="photo-status" role="status" aria-live="polite"></p>
    <div class="prices" id="prices" aria-label="Prezzi riconosciuti"></div>
+   <div id="photo-review-slot"></div>
    <div class="confirm-card" id="review" hidden aria-labelledby="review-title">
-    <h3 id="review-title">✅ Prezzo compilato automaticamente</h3>
-    <p class="hint">Controlla il prezzo e completa il nome se non è stato riconosciuto. Il prodotto verrà aggiunto soltanto dopo la tua conferma.</p>
+    <h3 id="review-title">✅ Controlla prezzo e sconto riconosciuti</h3>
+    <p class="hint">L’app propone nome, prezzo e sconto trovati nella foto. Puoi correggere tutti i campi: l’aggiunta avviene solo dopo la tua conferma.</p>
     <form id="review-form" autocomplete="off">
      <div class="confirm-grid">
       <div><label for="review-name">Nome prodotto</label><input id="review-name" type="text" maxlength="90" placeholder="Es. Limoni" required></div>
-      <div><label for="review-price">Prezzo (€)</label><input id="review-price" type="text" inputmode="decimal" placeholder="3,02" required></div>
+      <div><label for="review-price">Prezzo iniziale (€)</label><input id="review-price" type="text" inputmode="decimal" placeholder="3,02" required></div>
      </div>
-     <p class="review-hint" id="auto-price-hint">Se vedi anche il prezzo al kg, controlla che qui compaia l’importo totale.</p>
+     <div class="review-discount-row"><div><label for="review-discount">Sconto prodotto (%)</label><input id="review-discount" type="number" min="0" max="100" step="1" value="0"></div><p class="promo-hint" id="discount-detected">Nessuno sconto letto nella foto.</p></div>
+     <p class="review-hint" id="auto-price-hint">Controlla che il prezzo sia l’importo del prodotto e non il prezzo al kg.</p>
+     <p class="review-price-result" id="review-price-result" aria-live="polite">Prezzo da pagare: <strong>—</strong></p>
      <div style="display:flex;align-items:end;gap:10px;margin-bottom:12px">
       <div style="width:90px;flex:none"><label for="review-qty">Quantità</label><input type="number" id="review-qty" min="1" max="999" value="1" required></div>
       <button class="primary" type="submit">Conferma e aggiungi</button>
@@ -189,8 +242,15 @@
  const money=c=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(c/100);
  const KEY='la-mia-spesa-dati-v1';
  let state={items:[],discount:0};let saved=false;
+ let reviewOrigin='photo', livePending=null;
+ function placeReview(where){
+   reviewOrigin=where;
+   const slot=$(where==='live'?'live-review-slot':'photo-review-slot');
+   if($('review').parentElement!==slot)slot.appendChild($('review'));
+ }
+
  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items)){
-   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty)}));
+   state.items=d.items.filter(x=>x&&typeof x.name==='string'&&Number.isSafeInteger(x.cents)&&x.cents>=0&&Number.isInteger(x.qty)&&x.qty>0).map(x=>({id:String(x.id),name:x.name.slice(0,90),cents:x.cents,qty:Math.min(999,x.qty),productDiscount:Number.isInteger(x.productDiscount)?Math.max(0,Math.min(100,x.productDiscount)):0}));
    state.discount=Number.isFinite(d.discount)?Math.max(0,Math.min(100,Math.round(d.discount))):0;
  }}catch(e){}
  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));saved=true;}catch(e){if(!saved){showToast('Salvataggio non disponibile in questo browser.');saved=true;}}}
@@ -205,10 +265,14 @@
  }
  let toastTimer;
  function showToast(s){const t=$('toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
+ function unitNet(x){return Math.round(x.cents*(100-(x.productDiscount||0))/100);}
  function render(){
    const s=state.items.reduce((n,x)=>n+x.cents*x.qty,0);
-   const saving=Math.round(s*state.discount/100);
-   $('total').textContent=money(s-saving);$('subtotal').textContent=money(s);$('saving').textContent=money(saving);
+   const afterItemDiscount=state.items.reduce((n,x)=>n+unitNet(x)*x.qty,0);
+   const cartSaving=Math.round(afterItemDiscount*state.discount/100);
+   const total=afterItemDiscount-cartSaving;
+   const saving=s-total;
+   $('total').textContent=money(total);$('subtotal').textContent=money(s);$('saving').textContent=money(saving);
    $('count').textContent=state.items.reduce((n,x)=>n+x.qty,0);
    $('line-count').textContent=state.items.length===1?'1 voce':state.items.length+' voci';
    $('discount-slider').value=state.discount;$('discount-number').value=state.discount;
@@ -218,7 +282,7 @@
      const li=document.createElement('li');li.className='item';
      const main=document.createElement('div');main.className='item-main';
      const nm=document.createElement('div');nm.className='item-name';nm.textContent=x.name;
-     const pr=document.createElement('div');pr.className='item-price';pr.textContent=money(x.cents)+' ciascuno';
+     const pr=document.createElement('div');pr.className='item-price';pr.textContent=(x.productDiscount?'Originale '+money(x.cents)+' · Sconto −'+x.productDiscount+'% · Ora '+money(unitNet(x)):'Prezzo '+money(x.cents))+' ciascuno';
      const controls=document.createElement('div');controls.className='qty-actions';
      function btn(txt,action,aria){const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=txt;b.setAttribute('aria-label',aria);b.addEventListener('click',action);return b;}
      controls.append(btn('−',()=>adjust(x.id,-1),'Diminuisci quantità '+x.name));
@@ -226,26 +290,33 @@
      controls.append(btn('+',()=>adjust(x.id,1),'Aumenta quantità '+x.name));
      controls.append(btn('✎',()=>edit(x.id),'Modifica '+x.name));
      main.append(nm,pr,controls);
-     const subtotal=document.createElement('div');subtotal.className='item-sum';subtotal.textContent=money(x.cents*x.qty);
+     const subtotal=document.createElement('div');subtotal.className='item-sum';subtotal.textContent=money(unitNet(x)*x.qty);
      const del=document.createElement('button');del.type='button';del.className='trash';del.textContent='×';del.setAttribute('aria-label','Elimina '+x.name);
      del.addEventListener('click',()=>{state.items=state.items.filter(y=>y.id!==x.id);save();render();showToast('Prodotto eliminato');});
      li.append(main,subtotal,del);$('items').append(li);
    }
+ }
+ function validPercent(value){
+   const txt=String(value).trim();if(!/^\d{1,3}$/.test(txt))return null;
+   const n=Number(txt);return Number.isInteger(n)&&n>=0&&n<=100?n:null;
  }
  function adjust(id,delta){const x=state.items.find(x=>x.id===id);if(!x)return;x.qty=Math.max(1,Math.min(999,x.qty+delta));save();render();}
  function edit(id){const x=state.items.find(x=>x.id===id);if(!x)return;
    const name=prompt('Nome del prodotto',x.name);if(name===null)return;if(!name.trim()){showToast('Inserisci un nome');return;}
    const price=prompt('Prezzo del prodotto in euro',String((x.cents/100).toFixed(2)).replace('.',','));if(price===null)return;
    const cents=parsePrice(price);if(cents===null){showToast('Prezzo non valido');return;}
-   x.name=name.trim().slice(0,90);x.cents=cents;save();render();showToast('Prodotto modificato');
+   const discount=prompt('Sconto prodotto in percentuale (0–100)',String(x.productDiscount||0));if(discount===null)return;
+   const pct=validPercent(discount);if(pct===null){showToast('Sconto non valido: usa 0–100');return;}
+   x.name=name.trim().slice(0,90);x.cents=cents;x.productDiscount=pct;save();render();showToast('Prodotto modificato');
  }
  $('product-form').addEventListener('submit',e=>{
-   e.preventDefault();const name=$('product-name').value.trim(),cents=parsePrice($('product-price').value),qty=Number($('product-qty').value);
+   e.preventDefault();const name=$('product-name').value.trim(),cents=parsePrice($('product-price').value),qty=Number($('product-qty').value),pct=validPercent($('product-discount').value||'0');
    if(!name){showToast('Inserisci il nome del prodotto');return;}
    if(cents===null){showToast('Inserisci un prezzo valido, es. 2,50');return;}
    if(!Number.isInteger(qty)||qty<1||qty>999){showToast('Quantità valida: da 1 a 999');return;}
-   state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name,cents,qty});save();render();
-   $('product-name').value='';$('product-price').value='';$('product-qty').value='1';$('product-name').focus();showToast('Aggiunto alla lista');
+   if(pct===null){showToast('Sconto prodotto valido: 0–100%');return;}
+   state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name,cents,qty,productDiscount:pct});save();render();
+   $('product-name').value='';$('product-price').value='';$('product-discount').value='0';$('product-qty').value='1';$('product-name').focus();showToast('Aggiunto alla lista');
  });
  function setDiscount(v){const n=Number(v);state.discount=Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):0;save();render();}
  $('discount-slider').addEventListener('input',e=>setDiscount(e.target.value));
@@ -254,7 +325,7 @@
  $('clear').addEventListener('click',()=>{if(confirm('Vuoi davvero eliminare tutti i prodotti?')){state.items=[];save();render();showToast('Lista svuotata');}});
  $('export').addEventListener('click',()=>{
    const esc=v=>'"'+String(v).replace(/"/g,'""')+'"';
-   const lines=['Prodotto;Prezzo unitario (EUR);Quantita;Totale (EUR)',...state.items.map(x=>[esc(x.name),(x.cents/100).toFixed(2).replace('.',','),x.qty,(x.cents*x.qty/100).toFixed(2).replace('.',',')].join(';'))];
+   const lines=['Prodotto;Prezzo originale (EUR);Sconto prodotto (%);Quantita;Totale scontato (EUR)',...state.items.map(x=>[esc(x.name),(x.cents/100).toFixed(2).replace('.',','),x.productDiscount||0,x.qty,(unitNet(x)*x.qty/100).toFixed(2).replace('.',',')].join(';'))];
    const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='la-mia-spesa.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);showToast('Lista esportata');
  });
  function extractPrices(text){
@@ -350,19 +421,84 @@
    candidates.sort((a,b)=>b.score-a.score||a.i-b.i);
    return candidates.length?candidates[0].name:'';
  }
- function showReview(name,cents,show=true){
+ // Riconosci solo percentuali associate a segnali promozionali: ignora "100% biologico" e valori nutrizionali.
+ function extractDiscount(text){
+   const lines=String(text).replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
+   const matches=[];
+   for(let i=0;i<lines.length;i++){
+     const line=lines[i];
+     for(const m of line.matchAll(/([−-]\s*)?(\d{1,3})\s*%/g)){
+       const n=Number(m[2]);if(!Number.isInteger(n)||n<1||n>100)continue;
+       const before=line.slice(Math.max(0,m.index-36),m.index),after=line.slice(m.index+m[0].length,m.index+m[0].length+34);
+       const near=(before+' '+after).toLowerCase();
+       const prev=lines[i-1]||'',next=lines[i+1]||'';
+       const promo=/(?:sconto|scontato|risparmi|ribasso|offerta|promo(?:zione)?|\boff\b|saldi)/i;
+       const local=promo.test(near),adjacent=promo.test(prev)||promo.test(next);
+       const minus=Boolean(m[1]);
+       if(!local&&!minus&&!adjacent)continue;
+       // Evita "SCONTO 20%" lontano dalla percentuale in liste molto affollate.
+       let score=(local?45:0)+(minus?35:0)+(adjacent?12:0)+(n<90?3:0);
+       if(/(?:biologic|natural|ingredient|italian|frutta|grassi|latte|cacao|cotone|riciclat)/i.test(near))score-=40;
+       if(score<25)continue;
+       matches.push({percent:n,score,line:i});
+     }
+   }
+   matches.sort((a,b)=>b.score-a.score||a.line-b.line);
+   return matches[0]||null;
+ }
+ function taggedPrice(text,tag){
+   const lines=String(text).replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
+   for(let i=0;i<lines.length;i++){
+     if(!tag.test(lines[i]))continue;
+     const candidate=extractPrices([lines[i],lines[i+1]||''].join('\n'));
+     if(candidate.length)return candidate[0].cents;
+   }
+   return null;
+ }
+ // Se la foto mostra il prezzo FINALE, non scontarlo una seconda volta.
+ function buildOffer(text,chosenCents){
+   const d=extractDiscount(text);
+   if(!d)return {percent:0,found:false,note:'Nessuno sconto promozionale chiaramente leggibile.'};
+   const original=taggedPrice(text,/(?:prezzo\s+(?:iniziale|originale|intero|pieno|di\s+listino)|prima\s*(?:€|euro|costava|era)|listino|prezzo\s+barrato)/i);
+   const final=taggedPrice(text,/(?:prezzo\s+(?:finale|scontato|in\s+offerta|promo)|ora\s*(?:€|euro)|da\s+pagare|importo\s*(?:€|euro)?|totale\s*(?:€|euro)?)/i);
+   if(original!==null&&original>0){
+     // La proposta usa il prezzo intero. L'importo netto è calcolato UNA volta.
+     return {percent:d.percent,baseCents:original,found:true,note:'Riconosciuto sconto '+d.percent+'%. Ho trovato un possibile prezzo originale: verifica il totale prima di confermare.'};
+   }
+   if(final!==null&&final>0){
+     return {percent:0,baseCents:final,found:true,alreadyFinal:true,note:'Ho letto uno sconto del '+d.percent+'%, ma il prezzo sembra già finale: NON lo applico due volte. Verifica l’importo.'};
+   }
+   return {percent:d.percent,baseCents:chosenCents,found:true,note:'Riconosciuto sconto '+d.percent+'%. Controlla che il prezzo inserito sia quello PRIMA dello sconto, altrimenti imposta 0%.'};
+ }
+ function updateReviewPrice(){
+   const cents=parsePrice($('review-price').value),pct=validPercent($('review-discount').value||'0'),qty=Number($('review-qty').value),res=$('review-price-result');
+   if(cents===null||pct===null||!Number.isInteger(qty)||qty<1||qty>999){res.textContent='Controlla prezzo, sconto e quantità.';return;}
+   const unit=Math.round(cents*(100-pct)/100);res.replaceChildren();
+   const desc=document.createTextNode('Da pagare: '+money(unit)+' ciascuno'+(qty>1?' · Totale '+money(unit*qty):'')+' ');
+   const bold=document.createElement('strong');bold.textContent=pct?'(risparmi '+money((cents-unit)*qty)+')':'(nessuno sconto applicato)';
+   res.append(desc,bold);
+ }
+ for(const id of ['review-price','review-discount','review-qty'])$(id).addEventListener('input',updateReviewPrice);
+ function showReview(name,cents,show=true,offer=null){
    const card=$('review');
    if(!show){card.hidden=true;return;}
    card.hidden=false;
    $('review-name').value=name||'';
    $('review-price').value=cents===null?'':(cents/100).toFixed(2).replace('.',',');
    $('review-qty').value='1';
-   $('auto-price-hint').textContent=cents===null?'Il prezzo non è stato letto: inseriscilo manualmente.':'Prezzo compilato dalla foto. Controlla che sia l’importo finale e non il prezzo al kg.';
+   const d=offer||{percent:0,found:false,note:'Nessuno sconto promozionale chiaramente leggibile.'};
+   $('review-discount').value=d.percent||0;
+   $('discount-detected').textContent=d.note;
+   $('auto-price-hint').textContent=d.alreadyFinal?'Il prezzo sembra già scontato: NON sottrarre nuovamente la percentuale.':
+     d.percent?'Attenzione: il campo prezzo deve contenere l’importo originale, prima dello sconto.':'Controlla che il prezzo sia l’importo totale e non il prezzo al kg.';
+   updateReviewPrice();
  }
  function suggestions(text,autoReview=true){
    const values=extractPrices(text),target=$('prices');target.replaceChildren();
    const name=extractProductName(text);
-   if(autoReview)showReview(name,values.length?values[0].cents:null,Boolean(name||values.length));
+   if(autoReview){const offer=buildOffer(text,values.length?values[0].cents:null);
+     showReview(name,offer.baseCents??(values.length?values[0].cents:null),Boolean(name||values.length),offer);
+   }
    $('photo-status').textContent=values.length
     ?'Ho trovato '+values.length+' possibile/i prezzo/i'+(name?' e un nome prodotto.':' ma non un nome sicuro.')+' Controlla e conferma.'
     :'Non ho trovato un prezzo attendibile. Seleziona la zona del prezzo nella foto e riprova oppure scrivilo.';
@@ -380,27 +516,45 @@
  }
  $('review-form').addEventListener('submit',e=>{
    e.preventDefault();
-   const name=$('review-name').value.trim().slice(0,90),cents=parsePrice($('review-price').value),qty=Number($('review-qty').value);
+   const name=$('review-name').value.trim().slice(0,90),cents=parsePrice($('review-price').value),qty=Number($('review-qty').value),pct=validPercent($('review-discount').value||'0');
    if(!name){showToast('Inserisci il nome del prodotto');$('review-name').focus();return;}
    if(cents===null){showToast('Controlla il prezzo, es. 3,02');$('review-price').focus();return;}
    if(!Number.isInteger(qty)||qty<1||qty>999){showToast('Quantità da 1 a 999');return;}
-   state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name,cents,qty});save();render();
+   if(pct===null){showToast('Sconto non valido: inserisci da 0 a 100');return;}
+   state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name,cents,qty,productDiscount:pct});save();render();
    $('review').hidden=true;
-   $('items').scrollIntoView({behavior:'smooth',block:'center'});
+   if(reviewOrigin==='live'){
+     if(livePending)seenLiveKeys.add(livePending.key);
+     livePending=null;livePaused=false;
+     liveMessage('✅ '+name+' aggiunto: '+money(Math.round(cents*(100-pct)/100)*qty)+'. Inquadra il prossimo cartellino.','good');
+     scheduleLive(1600);
+   } else {
+     $('items').scrollIntoView({behavior:'smooth',block:'center'});
+   }
    showToast(name+' aggiunto alla lista');
  });
- $('review-cancel').addEventListener('click',()=>{$('review').hidden=true;showToast('Proposta annullata');});
- $('find-prices').addEventListener('click',()=>suggestions($('scan-text').value));
- let photoFile=null,focusPoint=null,namePoint=null,imgLoaded=false,scanMode='name';
+ $('review-cancel').addEventListener('click',()=>{
+   $('review').hidden=true;
+   if(reviewOrigin==='live'){
+     if(livePending)seenLiveKeys.add(livePending.key);
+     livePending=null;livePaused=false;
+     liveMessage('Proposta saltata. Inquadra un altro cartellino.','warn');
+     scheduleLive(1600);
+   }
+   showToast('Proposta annullata');
+ });
+ $('find-prices').addEventListener('click',()=>{stopLive();placeReview('photo');suggestions($('scan-text').value);});
+ let photoFile=null,focusPoint=null,namePoint=null,discountPoint=null,imgLoaded=false,scanMode='name';
  const focusWidth=.47,focusHeight=.23,nameWidth=.73,nameHeight=.22;
- const preview=$('preview'),focus=$('focus-box'),nameFocus=$('name-focus');
+ const preview=$('preview'),focus=$('focus-box'),nameFocus=$('name-focus'),discountFocus=$('discount-focus');
  function setMode(mode){
    scanMode=mode;
    $('choose-name').classList.toggle('active',scanMode==='name');
    $('choose-price').classList.toggle('active',scanMode==='price');
+   $('choose-discount').classList.toggle('active',scanMode==='discount');
    $('photo-status').textContent=mode==='name'
-    ?'Tocca il nome del prodotto sulla fotografia. Poi scegli «Seleziona il prezzo».'
-    :'Tocca l’importo totale sulla fotografia, non il prezzo al chilo.';
+    ?'Tocca il nome del prodotto sulla fotografia.'
+    :mode==='price'?'Tocca l’importo totale sulla fotografia, non il prezzo al chilo.':'Tocca la percentuale di sconto sulla fotografia, ad esempio «−20%».';
  }
  function positionBox(box,point,fw,fh){
    box.hidden=!point;
@@ -410,9 +564,10 @@
    box.style.left=(left*100)+'%';box.style.top=(top*100)+'%';
    box.style.width=(fw*100)+'%';box.style.height=(fh*100)+'%';
  }
- function updateFocus(){positionBox(focus,focusPoint,focusWidth,focusHeight);positionBox(nameFocus,namePoint,nameWidth,nameHeight);}
+ function updateFocus(){positionBox(focus,focusPoint,focusWidth,focusHeight);positionBox(nameFocus,namePoint,nameWidth,nameHeight);positionBox(discountFocus,discountPoint,.50,.23);}
  $('choose-name').addEventListener('click',()=>setMode('name'));
  $('choose-price').addEventListener('click',()=>setMode('price'));
+ $('choose-discount').addEventListener('click',()=>setMode('discount'));
  preview.addEventListener('click',e=>{
    if(!imgLoaded)return;
    const box=preview.getBoundingClientRect();
@@ -422,17 +577,21 @@
      updateFocus();
      if(!focusPoint)setMode('price');
      else $('photo-status').textContent='Nome e prezzo selezionati. Premi «Riconosci nome e prezzo».';
+   }else if(scanMode==='discount'){
+     discountPoint=point;updateFocus();
+     $('photo-status').textContent='Zona sconto selezionata. Premi «Riprova la lettura della foto».';
    }else{
      focusPoint=point;updateFocus();
-     $('photo-status').textContent=namePoint?'Nome e prezzo selezionati. Premi «Riprova la lettura della foto».':'Prezzo selezionato. Premi «Riprova la lettura della foto».';
+     $('photo-status').textContent='Prezzo selezionato. Premi «Riprova la lettura della foto».';
    }
  });
  $('reset-focus').addEventListener('click',()=>{
-   focusPoint=null;namePoint=null;updateFocus();setMode('name');
+   focusPoint=null;namePoint=null;discountPoint=null;updateFocus();setMode('name');
    $('photo-status').textContent='Le selezioni sono state cancellate: puoi leggere tutta la fotografia.';
  });
  $('photo').addEventListener('change',()=>{
-   photoFile=$('photo').files?.[0]||null;imgLoaded=false;focusPoint=null;namePoint=null;updateFocus();
+   stopLive();placeReview('photo');
+   photoFile=$('photo').files?.[0]||null;imgLoaded=false;focusPoint=null;namePoint=null;discountPoint=null;updateFocus();
    $('recognize').disabled=!photoFile;$('prices').replaceChildren();$('scan-text').value='';$('review').hidden=true;
    if(preview.dataset.url){URL.revokeObjectURL(preview.dataset.url);delete preview.dataset.url;}
    $('preview-box').hidden=!photoFile;$('focus-help').hidden=!photoFile;$('reset-focus').hidden=!photoFile;$('scan-buttons').hidden=!photoFile;
@@ -446,9 +605,9 @@
  function makeScanCanvas(mode,variant='contrast'){
    const w=preview.naturalWidth,h=preview.naturalHeight;
    let x=0,y=0,ww=w,hh=h;
-   if((mode==='selected'||mode==='name')&&(mode==='name'?namePoint:focusPoint)){
-     const pt=mode==='name'?namePoint:focusPoint;
-     const fw=mode==='name'?nameWidth:focusWidth,fh=mode==='name'?nameHeight:focusHeight;
+   if((mode==='selected'||mode==='name'||mode==='discount')&&(mode==='name'?namePoint:mode==='discount'?discountPoint:focusPoint)){
+     const pt=mode==='name'?namePoint:mode==='discount'?discountPoint:focusPoint;
+     const fw=mode==='name'?nameWidth:mode==='discount'?.50:focusWidth,fh=mode==='name'?nameHeight:mode==='discount'?.23:focusHeight;
      ww=w*fw;hh=h*fh;
      x=Math.max(0,Math.min(w-ww,pt.x*w-ww/2));
      y=Math.max(0,Math.min(h-hh,pt.y*h-hh/2));
@@ -490,6 +649,7 @@
    }).catch(e=>{tesseractLoading=null;throw e;});return tesseractLoading;
  }
  $('recognize').addEventListener('click',async()=>{
+   placeReview('photo');
    if(!photoFile||!imgLoaded)return;
    const b=$('recognize');b.disabled=true;b.textContent='Lettura in corso…';
    $('photo-status').textContent='Sto analizzando l’etichetta. Se è piccola o sfocata, alcune parole potrebbero non essere lette.';
@@ -529,6 +689,15 @@
        }
        if(croppedPrices.length)prices=[...croppedPrices.map(x=>({...x,score:x.score+40})),...prices.filter(p=>!croppedPrices.some(f=>f.cents===p.cents))];
      }
+     if(discountPoint){
+       $('photo-status').textContent='Leggo da vicino la percentuale di sconto selezionata…';
+       const promoCrop=await readRegion(worker,'discount','contrast',block);
+       texts.push(promoCrop);
+       if(!extractDiscount(promoCrop)){
+         const promoOriginal=await readRegion(worker,'discount','original',block);
+         texts.push(promoOriginal);
+       }
+     }
      if(!name||!prices.length){
        $('photo-status').textContent='Controllo una seconda volta il centro dell’etichetta…';
        const middleText=await readRegion(worker,'middle','contrast',sparse);
@@ -543,12 +712,14 @@
      // Se una selezione manuale ha prodotto un prezzo, rispettala; altrimenti
      // preferisci «Importo €» alla tariffa €/kg.
      const chosen=focusPoint && prices.length ? prices[0] : (rankedPrices[0]||prices[0]||null);
+     const offer=buildOffer(combinedText,chosen?chosen.cents:null);
      if(name||chosen){
-       showReview(name,chosen?chosen.cents:null);
+       showReview(name,offer.baseCents??(chosen?chosen.cents:null),true,offer);
        if(chosen && !$('product-price').value.trim())$('product-price').value=(chosen.cents/100).toFixed(2).replace('.',',');
        $('photo-status').textContent=(name?'Nome possibile: '+name+'. ':'Nome non leggibile: inseriscilo tu. ')
-         +(chosen?'Prezzo possibile: '+money(chosen.cents)+'. ':'Prezzo non leggibile: inseriscilo tu. ')
-         +'Sono solo suggerimenti: correggi i campi e poi conferma.';
+         +(chosen?'Prezzo possibile: '+money(offer.baseCents??chosen.cents)+'. ':'Prezzo non leggibile: inseriscilo tu. ')
+         +(offer.found?' '+offer.note:' Nessuno sconto promozionale sicuro rilevato.')
+         +' Verifica i campi e conferma.';
        $('review').scrollIntoView({behavior:'smooth',block:'nearest'});
      }else{
        // Mostra comunque campi editabili: su iPhone la lettura può non riuscire.
@@ -564,6 +735,223 @@
      b.disabled=false;b.textContent='Riprova la lettura della foto';
    }
  });
+ // --- Scanner continuo: nessuna foto salvata o inviata a un server. ---
+ const liveVideo=$('live-video');
+ let liveStream=null,liveWorker=null,liveActive=false,liveBusy=false,livePaused=false;
+ let liveTimer=null,liveRound=0,liveLastKey='',liveStreak=0,liveLastAcceptedKey='';
+ const seenLiveKeys=new Set();
+ function liveMessage(message,tone=''){
+   const box=$('live-status');
+   if(box.textContent!==message)box.textContent=message;
+   box.className='live-state'+(tone?' '+tone:'');
+ }
+ function liveButtons(active){
+   $('live-start').disabled=active;
+   $('live-start').textContent=active?'Scanner attivo':'Avvia scanner';
+   $('live-stop').disabled=!active;
+   $('live-retry').disabled=!active;
+   $('live-view').classList.toggle('on',active);
+   $('live-notice').hidden=!active;
+ }
+ function terminateLiveWorker(worker){
+   if(worker)Promise.resolve().then(()=>worker.terminate()).catch(()=>{});
+ }
+ function stopLive(){
+   liveRound++;
+   liveActive=false;livePaused=false;
+   clearTimeout(liveTimer);liveTimer=null;
+   if(liveStream){liveStream.getTracks().forEach(track=>track.stop());liveStream=null;}
+   liveVideo.pause();liveVideo.srcObject=null;
+   // Se il worker sta leggendo, verrà terminato quando ha finito.
+   const old=liveWorker;liveWorker=null;
+   if(!liveBusy)terminateLiveWorker(old);
+   liveButtons(false);
+   liveMessage('Scanner spento. Carrello e sconti sono conservati.');
+ }
+ function scheduleLive(delay=1400){
+   clearTimeout(liveTimer);
+   if(!liveActive||livePaused||!liveWorker||document.hidden)return;
+   const run=liveRound;
+   liveTimer=setTimeout(()=>{if(run===liveRound)readLiveFrame(run);},delay);
+ }
+ function makeLiveFrame(){
+   const video=liveVideo;
+   if(video.readyState<2||!video.videoWidth||!video.videoHeight)return null;
+   // Parte centrale della fotocamera: un solo cartellino entro il riquadro.
+   const w=video.videoWidth,h=video.videoHeight;
+   const cropW=w*.86,cropH=h*.69,x=(w-cropW)/2,y=(h-cropH)/2;
+   const sc=Math.min(1.8,1850/Math.max(cropW,cropH));
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(cropW*sc));
+   canvas.height=Math.max(1,Math.round(cropH*sc));
+   const ctx=canvas.getContext('2d',{alpha:false});
+   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+   ctx.drawImage(video,x,y,cropW,cropH,0,0,canvas.width,canvas.height);
+   return canvas;
+ }
+ function hasAnyLabel(text,regex){return regex.test(String(text));}
+ function liveOfferFromText(text,ocrConfidence){
+   const prices=extractPrices(text),name=extractProductName(text);
+   if(!prices.length)return null;
+   const chosen=prices[0];
+   if(!Number.isInteger(chosen.cents)||chosen.cents<=0)return null;
+   const normalized=plain(text);
+   const nameWords=knownProducts.filter(([key])=>new RegExp('(?:^| )'+key+'(?: |$)').test(normalized));
+   const knownName=!!name&&nameWords.length===1;
+   const discount=extractDiscount(text);
+   const hasPromotion=hasAnyLabel(text,/\b(?:sconto|scontato|ribasso|prezzo\s+promo|offerta|risparmi|saldo)\b/i);
+   const hasPerUnit=hasAnyLabel(text,/(?:€\s*\/?\s*(?:kg|etto|100\s*g)|\bprezzo\s*(?:al|\/)\s*(?:kg|etto)|\bal\s*kg\b|\b€\s*\/\s*kg)/i);
+   const hasEuro=hasAnyLabel(text,/€|\beuro\b|\beur\b/i);
+   const hasPriceCue=hasAnyLabel(text,/(?:\bprezzo\b|\bimporto\b|\btotale\b|\bda pagare\b)/i);
+   const nonUnit=prices.filter(p=>p.source!=='kg');
+   const genericUnique=new Set(nonUnit.map(p=>p.cents)).size;
+   const amountCount=prices.filter(p=>p.source==='importo').length;
+   const original=taggedPrice(text,/(?:prezzo\s+(?:iniziale|originale|intero|pieno|di\s+listino)|prima\s*(?:€|euro|costava|era)|listino|prezzo\s+barrato)/i);
+   const final=taggedPrice(text,/(?:prezzo\s+(?:finale|scontato|in\s+offerta|promo)|ora\s*(?:€|euro)|da\s+pagare|importo\s*(?:€|euro)?|totale\s*(?:€|euro)?)/i);
+   const offer=buildOffer(text,chosen.cents);
+   const base=offer.baseCents??chosen.cents,pct=offer.percent||0;
+   const net=Math.round(base*(100-pct)/100);
+   let sure=knownName&&ocrConfidence>=76&&(hasEuro||hasPriceCue)&&amountCount<=1;
+   let reason='';
+   if(!name){sure=false;reason='Il nome non è leggibile.';}
+   else if(!knownName){sure=false;reason='Controlla il nome del prodotto.';}
+   if(genericUnique>1&&!chosen.source.includes('importo')&&!discount){sure=false;reason='Sono presenti prezzi diversi.';}
+   if(hasPerUnit&&chosen.source!=='importo'&&final===null){sure=false;reason='Possibile prezzo al kg: controlla l’importo.';}
+   if(chosen.source==='kg'&&final===null){sure=false;reason='Possibile prezzo al kg.';}
+   if(original!==null&&!discount){sure=false;reason='Compare un prezzo originale: verifica quello finale.';}
+   if(discount){
+     if(original!==null&&final!==null){
+       const expected=Math.round(original*(100-discount.percent)/100);
+       if(Math.abs(expected-final)>1){sure=false;reason='Sconto e prezzo finale non coincidono.';}
+       else if(net!==expected){sure=false;reason='Importo dello sconto dubbio.';}
+     }else if(original!==null){
+       if(!hasEuro){sure=false;reason='Verifica il prezzo originale.';}
+     }else if(final!==null){
+       // Un importo già finale non deve subire un secondo sconto.
+       if(pct!==0||base!==final){sure=false;reason='Possibile doppio sconto: verifica.';}
+     }else{sure=false;reason='Sconto rilevato, ma prezzo originale o finale non chiaro.';}
+   }else if(hasPromotion){
+     sure=false;reason='Offerta individuata, ma sconto non leggibile.';
+   }
+   if(hasPromotion&&state.discount>0){
+     sure=false;
+     reason='Hai anche uno sconto generale del '+state.discount+'%: controlla che non venga applicato due volte.';
+   }
+   if(nonUnit.length>1&&original===null&&final===null){sure=false;reason='Più prezzi possibili.';}
+   if(!chosen.source.includes('importo')&&genericUnique!==1&&final===null&&original===null){sure=false;reason='Non è chiaro quale sia il prezzo finale.';}
+   if(base<=0||base>200000||net<=0){sure=false;reason='Importo fuori intervallo: verifica.';}
+   const key=plain(name||'?')+'|'+base+'|'+pct+'|'+net;
+   return {name,cents:base,percent:pct,net,confidence:ocrConfidence,sure,reason,key,text,offer};
+ }
+ function processLiveRead(text,confidence){
+   if(!liveActive||livePaused)return;
+   const guess=liveOfferFromText(text,confidence);
+   if(!guess){
+     liveStreak=0;liveLastKey='';
+     liveMessage('Inquadra da vicino un cartellino leggibile, tenendo fermo il telefono.');
+     return;
+   }
+   if(guess.key===liveLastKey)liveStreak++;
+   else{liveLastKey=guess.key;liveStreak=1;}
+   if(seenLiveKeys.has(guess.key)){
+     liveMessage('✓ Cartellino già letto. Spostati sul prossimo; per ripeterlo usa «Rileggi questo cartellino».','good');
+     return;
+   }
+   if(liveStreak<2){
+     liveMessage('Rilevato '+(guess.name||'un prodotto')+' · '+money(guess.net)+'. Verifico la lettura…');
+     return;
+   }
+   if(guess.sure&&$('live-auto').checked){
+     state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:guess.name,cents:guess.cents,qty:1,productDiscount:guess.percent});
+     seenLiveKeys.add(guess.key);liveLastAcceptedKey=guess.key;
+     save();render();
+     liveMessage('✅ Aggiunto '+guess.name+' · '+money(guess.net)+'. Nuovo totale: '+$('total').textContent+'. Inquadra un altro prodotto.','good');
+     showToast(guess.name+' aggiunto automaticamente');
+     if(navigator.vibrate)try{navigator.vibrate(75);}catch(e){}
+   }else{
+     livePaused=true;livePending=guess;
+     placeReview('live');showReview(guess.name,guess.cents,true,guess.offer);
+     $('discount-detected').textContent=guess.reason || (guess.sure?'Aggiunta automatica disattivata. Conferma il prodotto.':'Controlla il nome, il prezzo e lo sconto.');
+     liveMessage('⚠️ Lettura da controllare: '+(guess.reason||'conferma i campi prima di aggiungere.') ,'warn');
+     $('review').scrollIntoView({behavior:'smooth',block:'nearest'});
+   }
+ }
+ async function readLiveFrame(run){
+   const worker=liveWorker;
+   if(!worker||!liveActive||livePaused||run!==liveRound||liveBusy)return;
+   const frame=makeLiveFrame();
+   if(!frame){scheduleLive(1100);return;}
+   liveBusy=true;
+   try{
+     const result=await worker.recognize(frame);
+     if(run!==liveRound||!liveActive)return;
+     const content=(result?.data?.text||'').trim();
+     const confidence=Number(result?.data?.confidence)||0;
+     processLiveRead(content,confidence);
+   }catch(e){
+     if(run===liveRound&&liveActive)liveMessage('Lettura temporaneamente non riuscita. Riprovo automaticamente.','warn');
+   }finally{
+     frame.width=frame.height=0;
+     if(worker!==liveWorker){terminateLiveWorker(worker);}
+     else{
+       liveBusy=false;
+       if(run===liveRound)scheduleLive(liveStreak?1300:1650);
+     }
+   }
+ }
+ async function startLive(){
+   stopLive();
+   if(livePending){livePending=null;$('review').hidden=true;}
+   const run=++liveRound;
+   liveActive=true;liveBusy=false;livePaused=false;liveStreak=0;liveLastKey='';liveLastAcceptedKey='';
+   seenLiveKeys.clear();
+   liveButtons(true);
+   liveMessage('Richiedo l’accesso alla fotocamera…');
+   try{
+     if(!navigator.mediaDevices?.getUserMedia){
+       throw new Error('La fotocamera richiede Safari o l’app dalla Home con indirizzo HTTPS.');
+     }
+     const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+     if(run!==liveRound){stream.getTracks().forEach(t=>t.stop());return;}
+     liveStream=stream;
+     liveVideo.srcObject=stream;
+     await liveVideo.play();
+     if(run!==liveRound)return;
+     liveMessage('Preparo il riconoscimento dei cartellini… (al primo utilizzo serve internet).');
+     await loadTesseract();
+     const worker=await window.Tesseract.createWorker('ita');
+     if(run!==liveRound){terminateLiveWorker(worker);return;}
+     await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+     if(run!==liveRound){terminateLiveWorker(worker);return;}
+     liveWorker=worker;
+     liveMessage('Scanner attivo. Inquadra un cartellino dentro il riquadro.','good');
+     scheduleLive(650);
+   }catch(e){
+     if(run!==liveRound)return;
+     const msg=e?.name==='NotAllowedError'?'Accesso alla fotocamera negato: abilitalo per il sito nelle impostazioni di Safari.':
+       e?.name==='NotFoundError'?'Nessuna fotocamera disponibile.':
+       e?.message||'Impossibile aprire la fotocamera.';
+     stopLive();
+     liveMessage('⚠️ '+msg+' Puoi comunque usare «Scatta o scegli foto» qui sotto.','warn');
+   }
+ }
+ $('live-start').addEventListener('click',startLive);
+ $('live-stop').addEventListener('click',stopLive);
+ $('live-retry').addEventListener('click',()=>{
+   if(liveLastAcceptedKey){seenLiveKeys.delete(liveLastAcceptedKey);liveLastAcceptedKey='';}
+   else if(liveLastKey)seenLiveKeys.delete(liveLastKey);
+   liveLastKey='';liveStreak=0;
+   livePaused=false;
+   liveMessage('Cartellino sbloccato: puoi scansionarlo di nuovo.');
+   scheduleLive(400);
+ });
+ $('live-auto').addEventListener('change',()=>{
+   liveMessage($('live-auto').checked?'Aggiunta automatica attiva solo per letture verificate.':'Modalità conferma: ogni cartellino richiederà una conferma.');
+ });
+ document.addEventListener('visibilitychange',()=>{
+   if(document.hidden&&liveActive){stopLive();liveMessage('Fotocamera fermata perché l’app non è in primo piano. Tocca «Avvia scanner» per riprendere.');}
+ });
+ window.addEventListener('pagehide',()=>{if(liveActive)stopLive();});
  render();
  })();
  </script>
