@@ -206,8 +206,7 @@
     #barcode-reader{margin:12px 0;border:2px dashed #aac3f1;border-radius:16px;overflow:hidden;background:#10213c;min-height:110px}
     #barcode-reader:empty{display:none}
     #barcode-reader.starting{display:block!important;min-height:240px}
-    #barcode-reader video{display:block!important;width:100%!important;height:auto!important;min-height:200px;object-fit:contain;position:relative!important}
-    #barcode-reader video{max-width:100%!important;border-radius:13px}
+    #barcode-reader video{display:block!important;width:100%!important;height:auto!important;min-height:200px;object-fit:contain;position:relative!important;max-width:100%!important;border-radius:13px}
     .barcode-buttons{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin:10px 0}
     .barcode-buttons button{min-height:52px}
     .barcode-form{background:#eff4ff;border:1px solid #b8cef8;padding:13px;border-radius:15px;margin-top:13px}
@@ -217,6 +216,12 @@
     #barcode-code{font-weight:800;letter-spacing:.04em;overflow-wrap:anywhere}
     .barcode-warn{background:#fff2df;color:#754f19;border-radius:11px;padding:10px;font-size:13px;line-height:1.5;margin:9px 0}
     .barcode-quiet{font-size:12px;color:#66788e;line-height:1.5}
+    .barcode-name-tools{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:13px 0 7px}
+    .barcode-name-tools p{grid-column:1/-1}
+    .barcode-name-tools .secondary{font-size:13px;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.3}
+    .barcode-name-tools .barcode-photo-label{cursor:pointer;border:1px solid var(--line);border-radius:12px;color:var(--ink);background:#f7f9fe;padding:11px;min-height:47px;font-weight:700}
+    .barcode-name-tools .camera-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    @media(max-width:370px){.barcode-name-tools{grid-template-columns:1fr}}
     @media(max-width:365px){.barcode-fields{grid-template-columns:1fr}}
   </style>
 </head>
@@ -265,15 +270,15 @@
   </section>
 
   <section class="section barcode-section" id="barcode-section" aria-labelledby="barcode-title">
-   <div class="section-head"><h2 id="barcode-title">▥ Lettore codice a barre</h2><span class="voice-tag">BARCODE 2</span></div>
-   <p class="hint">Inquadra il codice EAN del prodotto: non serve leggere tutte le scritte sull’etichetta. L’app cerca il nome nel suo archivio locale oppure online. <strong>Prezzi e sconti del negozio non sono normalmente nel codice.</strong></p>
+   <div class="section-head"><h2 id="barcode-title">▥ Lettore codice a barre</h2><span class="voice-tag">BARCODE 3</span></div>
+   <p class="hint">Inquadra il codice EAN del prodotto: non serve leggere tutte le scritte sull’etichetta. L’app cerca il nome nel suo archivio locale oppure online. Se un codice interno del supermercato contiene solo un prezzo, puoi <strong>fotografare o dettare il nome</strong>: verrà ricordato per le prossime scansioni compatibili. <strong>Prezzi e sconti del negozio non sono normalmente nel codice.</strong></p>
    <div id="barcode-reader" aria-label="Inquadratura codice a barre"></div>
    <div class="barcode-buttons"><button class="primary" type="button" id="barcode-start">▥ Leggi codice</button><button class="secondary" type="button" id="barcode-stop" disabled>Ferma</button></div>
    <p id="barcode-status" role="status" aria-live="polite">Pronto. Tieni il codice al centro dell’inquadratura.</p>
    <button type="button" class="secondary" id="barcode-next" hidden style="width:100%;margin:6px 0 12px">▶ Scansiona il prossimo prodotto</button>
    <label class="camera-label" for="barcode-photo">📷 Leggi barcode da una foto</label>
    <input class="camera-input" id="barcode-photo" type="file" accept="image/*">
-   <p class="barcode-quiet">Puoi scattare o scegliere una foto nitida del solo codice a barre.</p>
+   <p class="barcode-quiet">Puoi scegliere o scattare una foto nitida del solo codice a barre.</p>
    <label for="barcode-manual">Oppure digita il numero sotto al codice</label>
    <div class="barcode-buttons"><input type="text" inputmode="numeric" maxlength="14" id="barcode-manual" placeholder="Es. 2080235002066"><button type="button" class="secondary" id="barcode-manual-go">Cerca</button></div>
    <div id="barcode-form" class="barcode-form" hidden>
@@ -284,10 +289,17 @@
      <div><label for="barcode-price">Prezzo finale (€)</label><input type="text" inputmode="decimal" id="barcode-price" placeholder="Es. 2,06"></div>
      <div><label for="barcode-qty">Quantità</label><input type="number" min="1" max="999" value="1" id="barcode-qty"></div>
     </div>
+    <div class="barcode-name-tools">
+      <p class="barcode-quiet" style="margin:3px 0 7px"><strong>Non compare il nome?</strong> La prima volta fotografalo oppure dettalo. Rimarrà associato al codice sul tuo iPhone.</p>
+      <label class="secondary barcode-photo-label" for="barcode-name-photo">📷 Fotografa il nome</label>
+      <input class="camera-input" id="barcode-name-photo" type="file" accept="image/*">
+      <button type="button" class="secondary" id="barcode-name-voice">🎙️ Detta il nome</button>
+    </div>
+    <p id="barcode-name-status" class="barcode-quiet" role="status" aria-live="polite">Se il nome non è disponibile, puoi anche scriverlo nel campo sopra.</p>
     <p id="barcode-warning" class="barcode-warn"></p>
     <button type="button" class="primary" id="barcode-add" style="width:100%">✅ Conferma e aggiungi</button>
    </div>
-   <p class="barcode-quiet">Il prezzo confermato viene ricordato <strong>solo su questo iPhone</strong>, per le scansioni future; potrebbe cambiare al supermercato. Per i prodotti freschi a peso variabile, il prezzo eventualmente presente nel codice richiede sempre conferma.</p>
+   <p class="barcode-quiet">Il nome confermato viene ricordato <strong>solo su questo iPhone</strong>; per gli articoli a peso il codice può variare e il prezzo viene ricontrollato ogni volta. Anche i prezzi dei prodotti confezionati possono cambiare al supermercato. Per i prodotti freschi a peso variabile, il prezzo eventualmente presente nel codice richiede sempre conferma.</p>
   </section>
 
   <section class="section live-section" aria-labelledby="live-title">
@@ -1705,7 +1717,6 @@
    }
  }
  async function startLive(){
-   if(barcodeScanner||$('barcode-start').disabled)await barcodeStop();
    stopLive();
    if(livePending){livePending=null;$('review').hidden=true;}
    const run=++liveRound;
@@ -1781,8 +1792,7 @@
 
  // Lettura EAN: usa html5-qrcode solo quando richiesto (compatibile con Safari iOS).
  const BARCODE_KEY='la-mia-spesa-codici-v1';
- let barcodeScanner=null,barcodeActive=false,barcodeReady=false,barcodeLocked=false,barcodeCurrent='',barcodeEpoch=0;
- let barcodeWatch=null,barcodeVideoObserver=null;
+ let barcodeScanner=null,barcodeActive=false,barcodeReady=false,barcodeLocked=false,barcodeCurrent='',barcodeEpoch=0,barcodeVideoObserver=null,barcodeWatch=null;
  let barcodeHistory={};
  try{const v=JSON.parse(localStorage.getItem(BARCODE_KEY));if(v&&typeof v==='object'&&!Array.isArray(v))barcodeHistory=v;}catch(e){}
  function saveBarcodeHistory(){try{localStorage.setItem(BARCODE_KEY,JSON.stringify(barcodeHistory));}catch(e){}}
@@ -1795,6 +1805,9 @@
  }
  // Per gli EAN-13 interni 20/21: le 5 cifre prima del controllo possono contenere il prezzo in centesimi.
  // Non e' garantito: alcune insegne usano invece la codifica del peso, quindi NON aggiungere mai senza conferma.
+ // Quando il codice interno codifica un importo, spesso le prime 7 cifre identificano l'articolo.
+ // Non vale per ogni supermercato: il nome resta modificabile e il prezzo non viene riutilizzato.
+ function barcodeFamilyKey(code){return /^2[01]\d{11}$/.test(code)?'famiglia:'+code.slice(0,7):null;}
  function barcodePossibleAmount(code){
    if(!/^2[01]\d{11}$/.test(code))return null;
    const cents=Number(code.slice(7,12));
@@ -1813,7 +1826,7 @@
  }
  async function barcodeStop(){
    barcodeEpoch++;barcodeActive=false;barcodeLocked=false;
-   clearTimeout(barcodeWatch);barcodeVideoObserver?.disconnect();
+   clearTimeout(barcodeWatch);if(barcodeVideoObserver)barcodeVideoObserver.disconnect();
    $('barcode-reader').classList.remove('starting');
    $('barcode-start').disabled=false;$('barcode-stop').disabled=true;
    $('barcode-next').hidden=true;
@@ -1829,8 +1842,7 @@
    $('barcode-start').disabled=true;
    barcodeStatus('Carico il lettore barcode. La prima volta serve Internet…');
    try{
-     await loadBarcodeReader();
-     if(run!==barcodeEpoch)return;
+     await loadBarcodeReader();if(run!==barcodeEpoch)return;
      $('barcode-reader').classList.add('starting');
      const prepareVideo=()=>{
        const v=$('barcode-reader').querySelector('video');
@@ -1839,9 +1851,7 @@
      barcodeVideoObserver=new MutationObserver(prepareVideo);
      barcodeVideoObserver.observe($('barcode-reader'),{childList:true,subtree:true});
      const formats=window.Html5QrcodeSupportedFormats;
-     barcodeScanner=new window.Html5Qrcode('barcode-reader',{
-       formatsToSupport:[formats.EAN_13,formats.EAN_8,formats.UPC_A,formats.UPC_E],verbose:false
-     });
+     barcodeScanner=new window.Html5Qrcode('barcode-reader',{formatsToSupport:[formats.EAN_13,formats.EAN_8,formats.UPC_A,formats.UPC_E],verbose:false});
      await barcodeScanner.start({facingMode:'environment'}, {fps:10,videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},
        text=>{
          if(!barcodeActive||barcodeLocked)return;
@@ -1856,14 +1866,13 @@
      prepareVideo();
      const video=$('barcode-reader').querySelector('video');
      if(video)video.play().catch(()=>barcodeStatus('Tocca l’immagine per avviare il video, oppure usa «Leggi barcode da una foto».'));
-     barcodeWatch=setTimeout(()=>{
-       if(run!==barcodeEpoch||!barcodeActive)return;
-       if(!video||video.readyState<2||!video.videoWidth)barcodeStatus('⚠️ La fotocamera non sta inviando immagini. Premi Ferma e usa «Leggi barcode da una foto», oppure riapri l’app in Safari.');
+     barcodeWatch=setTimeout(()=>{if(run!==barcodeEpoch||!barcodeActive)return;
+       if(!video||video.readyState<2||!video.videoWidth)barcodeStatus('⚠️ La fotocamera non invia immagini. Premi Ferma e prova con una foto, oppure riapri l’app in Safari.');
      },7000);
-     barcodeStatus('Fotocamera attiva: inquadra un codice EAN. Non devi tenere ferma l’intera etichetta.');
+     barcodeStatus('Fotocamera attiva: inquadra un codice EAN. Non devi tenere ferma tutta l’etichetta.');
    }catch(e){
      if(run!==barcodeEpoch)return;
-     clearTimeout(barcodeWatch);barcodeVideoObserver?.disconnect();$('barcode-reader').classList.remove('starting');
+     clearTimeout(barcodeWatch);if(barcodeVideoObserver)barcodeVideoObserver.disconnect();$('barcode-reader').classList.remove('starting');
      barcodeActive=false;$('barcode-start').disabled=false;$('barcode-stop').disabled=true;
      barcodeStatus('⚠️ '+(e?.message||'Fotocamera non disponibile')+' Puoi digitare il numero sotto il codice.');
      if(barcodeScanner){try{await barcodeScanner.stop()}catch(x){}barcodeScanner=null;}
@@ -1875,11 +1884,14 @@
    $('barcode-form').hidden=false;$('barcode-code').textContent=code;
    $('barcode-name').value='';$('barcode-price').value='';$('barcode-qty').value='1';
    let origin='Non trovato tra i prodotti già registrati.';
-   const saved=barcodeHistory[code];
+   const family=barcodeFamilyKey(code);
+   const exact=barcodeHistory[code];
+   const saved=exact||(family?barcodeHistory[family]:null);
+   $('barcode-name-status').textContent='Se il nome non viene trovato, fotografalo, dettalo o scrivilo. L’app lo ricorderà.';
    if(saved&&typeof saved.name==='string'){
      $('barcode-name').value=saved.name;
-     if(Number.isInteger(saved.cents))$('barcode-price').value=(saved.cents/100).toFixed(2).replace('.',',');
-     origin='Riconosciuto sul tuo iPhone: ultimo prezzo registrato (potrebbe essere cambiato).';
+     if(exact&&Number.isInteger(saved.cents))$('barcode-price').value=(saved.cents/100).toFixed(2).replace('.',',');
+     origin=exact?'Nome recuperato dal tuo iPhone; il vecchio prezzo potrebbe essere cambiato.':'Nome recuperato da un codice simile dello stesso negozio. Verifica che il prodotto coincida; il prezzo si legge ogni volta.';
    }
    const implied=barcodePossibleAmount(code);
    if(implied!==null){
@@ -1900,19 +1912,15 @@
          else $('barcode-origin').textContent='Prodotto non trovato nel catalogo: inserisci il nome.';
        } else if(rid===barcodeReady)$('barcode-origin').textContent='Catalogo prodotti non disponibile: inserisci il nome.';
      }catch(e){if(rid===barcodeReady)$('barcode-origin').textContent='Catalogo non raggiungibile: puoi inserire il nome manualmente o con la dettatura.';}
+   }else if(!saved&&/^2[01]/.test(code)){
+     $('barcode-origin').textContent+=' Questo è un codice interno del negozio: non contiene il nome. Usa la foto o la voce per registrarlo la prima volta.';
    }
  }
- $('barcode-reader').addEventListener('click',()=>{
-   const v=$('barcode-reader').querySelector('video');
-   if(v){v.muted=true;v.playsInline=true;v.play().catch(()=>barcodeStatus('Video non disponibile: usa «Leggi barcode da una foto».'));}
- });
  $('barcode-photo').addEventListener('change',async event=>{
    const file=event.target.files?.[0];if(!file)return;
-   stopLive();await barcodeStop();
-   const run=++barcodeEpoch;
-   $('barcode-start').disabled=true;$('barcode-photo').disabled=true;
-   barcodeStatus('Leggo il codice dalla foto…');
-   let reader=null;
+   await barcodeStop();const run=++barcodeEpoch;
+   barcodeStatus('Leggo il codice dalla foto…');let reader=null;
+   $('barcode-start').disabled=true;
    try{
      await loadBarcodeReader();if(run!==barcodeEpoch)return;
      const f=window.Html5QrcodeSupportedFormats;
@@ -1920,10 +1928,68 @@
      const code=String(await reader.scanFile(file,false)).replace(/\D/g,'');
      if(run!==barcodeEpoch)return;
      if(!gtinValid(code))throw Error('Codice non valido');
-     barcodeLocked=true;barcodePresent(code);barcodeStatus('✅ Codice '+code+' riconosciuto dalla foto. Controlla nome e prezzo.');
-   }catch(e){if(run===barcodeEpoch)barcodeStatus('Non riesco a leggere il codice nella foto. Riprova con tutte le barre nitide e i bordi bianchi visibili, oppure digita il numero.');}
-   finally{if(reader)try{reader.clear();}catch(e){}if(run===barcodeEpoch)$('barcode-start').disabled=false;$('barcode-photo').disabled=false;event.target.value='';}
+     barcodeLocked=true;barcodePresent(code);barcodeStatus('✅ Codice '+code+' letto dalla foto. Verifica nome e prezzo.');
+   }catch(e){if(run===barcodeEpoch)barcodeStatus('Non riesco a leggere il barcode nella fotografia. Avvicina il telefono alle barre e riprova, oppure digita il numero.');}
+   finally{if(reader)try{reader.clear();}catch(e){}if(run===barcodeEpoch)$('barcode-start').disabled=false;event.target.value='';}
  });
+
+ // Il riconoscimento del nome e' un suggerimento modificabile, mai un'aggiunta automatica.
+ function barcodeGuessName(text){
+   const noWords=/^(?:VIA|LUGO|C[AO]OP|PREINCARTATO|PESO|PREZZO|TARA|IMPORTO|DATA|LOTTO|SCADENZA|INGREDIENTI|ALLERGENI|CONSERVARE|VALORI|NUTRIZIONALI|PRODOTTO BIOLOGICO|DISTRIBUITO|CONFEZIONATO|STABILIMENTO|NOME|NEGOZIO|WWW\.)/i;
+   const lines=String(text||'').split(/[\r\n]+/).map(v=>v.replace(/\s+/g,' ').trim()).filter(Boolean);
+   let best='',bestScore=-100;
+   for(const line of lines){
+     const clean=line.replace(/^[^\p{L}]+|[^\p{L}\dÀ-ÿ]+$/gu,'').trim();
+     const letters=clean.match(/\p{L}/gu)||[];
+     if(letters.length<5||clean.length>58||/\b(?:€|kg|EAN|IVA|CAP|P\.?IVA)\b/i.test(clean)||noWords.test(clean))continue;
+     if((clean.match(/\d/g)||[]).length>2)continue;
+     const words=clean.split(/\s+/);
+     if(words.length>7)continue;
+     const upper=letters.filter(c=>c===c.toUpperCase()).length/letters.length;
+     let score=letters.length*.13+Math.min(words.length,4)*1.2+(upper>.75?4:0)-(clean.length>42?6:0);
+     if(/\b(PANE|PASTA|LATTE|LIMONI|BANANE|YOGURT|BURRO|RISO|BISCOTTI|POMODORI|MOZZARELLA|MELE|INSALATA|ACQUA|CARNE|UOVA|CEREALI)\b/i.test(clean))score+=8;
+     if(/(?:CONTIENE|SEM[I]?|DERIVATI|CRUDO|SOCIETA|[A-Z]\.R\.L\.)/i.test(clean))score-=12;
+     if(score>bestScore){best=clean;bestScore=score;}
+   }
+   return bestScore>=5?best.replace(/\s{2,}/g,' ').slice(0,90):'';
+ }
+ $('barcode-name-photo').addEventListener('change',async event=>{
+   const file=event.target.files?.[0];if(!file)return;
+   const rid=barcodeReady, code=barcodeCurrent;
+   const status=$('barcode-name-status');status.textContent='Leggo il nome dalla fotografia: inquadra il nome stampato, non il barcode…';
+   let obj=null,worker=null,canvas=null;
+   try{
+     await loadTesseract();
+     obj=URL.createObjectURL(file);
+     const img=new Image();img.src=obj;await new Promise((ok,fail)=>{img.onload=ok;img.onerror=fail;});
+     const factor=Math.min(2.5,Math.max(1,1300/Math.max(img.naturalWidth,img.naturalHeight)));
+     canvas=document.createElement('canvas');canvas.width=Math.min(2400,Math.round(img.naturalWidth*factor));canvas.height=Math.min(2400,Math.round(img.naturalHeight*factor));
+     if(!canvas.width||!canvas.height)throw Error('Foto vuota');
+     canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+     worker=await window.Tesseract.createWorker('ita');
+     const r=await worker.recognize(canvas);
+     if(rid!==barcodeReady||code!==barcodeCurrent)return; // Niente dati della scansione precedente.
+     const proposal=barcodeGuessName(r?.data?.text||'');
+     if(proposal){$('barcode-name').value=proposal;status.textContent='Nome proposto: «'+proposal+'». Controllalo prima di aggiungere il prodotto.';}
+     else {status.textContent='Non riesco a leggere il nome con sicurezza. Avvicina la foto alla scritta, oppure dettalo.';}
+   }catch(e){status.textContent='Lettura del nome non disponibile. Puoi usare la dettatura della tastiera o scrivere il nome.';}
+   finally{if(worker)try{await worker.terminate();}catch(e){}if(obj)URL.revokeObjectURL(obj);if(canvas)canvas.width=canvas.height=0;event.target.value='';}
+ });
+ $('barcode-name-voice').addEventListener('click',()=>{
+   const field=$('barcode-name');const status=$('barcode-name-status');
+   const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+   if(!Speech){field.focus();status.textContent='Tocca il microfono della tastiera dell’iPhone, detta il nome e confermalo.';return;}
+   try{
+     const speech=new Speech();speech.lang='it-IT';speech.interimResults=false;speech.maxAlternatives=1;
+     const code=barcodeCurrent;
+     status.textContent='Ascolto il nome del prodotto…';
+     speech.onresult=(e)=>{if(code!==barcodeCurrent)return;const v=String(e.results?.[0]?.[0]?.transcript||'').trim();if(v){field.value=v.slice(0,90);status.textContent='Nome dettato: «'+v+'». Controllalo e premi Conferma e aggiungi.';}};
+     speech.onerror=()=>{field.focus();status.textContent='Microfono diretto non disponibile: usa il microfono della tastiera dell’iPhone.';};
+     speech.start();
+   }catch(e){field.focus();status.textContent='Tocca il microfono della tastiera per dettare il nome.';}
+ });
+
+ $('barcode-reader').addEventListener('click',()=>{const v=$('barcode-reader').querySelector('video');if(v){v.muted=true;v.playsInline=true;v.play().catch(()=>barcodeStatus('Video non disponibile: usa «Leggi barcode da una foto».'));}});
  $('barcode-start').addEventListener('click',barcodeStart);
  $('barcode-stop').addEventListener('click',barcodeStop);
  $('barcode-next').addEventListener('click',()=>{
@@ -1944,7 +2010,10 @@
      barcodeStatus('⚠️ Verifica nome, prezzo finale maggiore di zero e quantità.');return;
    }
    state.items.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,9),name:name.slice(0,90),cents,qty,productDiscount:0,lockedFinal:true,skipGeneralDiscount:true,source:'barcode'});
-   barcodeHistory[code]={name:name.slice(0,90),cents,when:Date.now()};saveBarcodeHistory();save();render();
+   barcodeHistory[code]={name:name.slice(0,90),cents,when:Date.now()};
+   const family=barcodeFamilyKey(code);
+   if(family)barcodeHistory[family]={name:name.slice(0,90),when:Date.now()}; // Mai trasferire il vecchio prezzo dei prodotti a peso.
+   saveBarcodeHistory();save();render();
    barcodeStatus('✅ '+name+' aggiunto: '+money(cents*qty)+'. '+(barcodeActive?'Premi «Scansiona il prossimo prodotto» per continuare.':''));
    $('barcode-form').hidden=true;showToast(name+' aggiunto alla lista');
  });
