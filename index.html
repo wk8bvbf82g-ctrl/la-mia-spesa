@@ -255,7 +255,7 @@
    </div>
    <div class="live-actions"><button class="primary" id="live-start" type="button">Avvia scanner</button><button class="secondary" id="live-stop" type="button" disabled>Ferma</button></div>
    <p id="live-status" class="live-state" role="status" aria-live="polite">Scanner spento. Il carrello e i prezzi restano salvati.</p>
-   <label class="live-toggle" for="live-auto"><input id="live-auto" type="checkbox" checked><span><strong>Aggiunta automatica</strong><br>Inserisce il prodotto solo quando nome e prezzo risultano coerenti in due letture. Negli altri casi chiede di verificare.</span></label>
+   <label class="live-toggle" for="live-auto"><input id="live-auto" type="checkbox" checked><span><strong>Aggiunta automatica</strong><br>Inserisce il prodotto solo quando nome e prezzo risultano coerenti in due letture. Negli altri casi chiede di verificare. <strong>Per il pane e gli articoli a peso usa sempre «Importo €», non «Prezzo €/kg».</strong></span></label>
    <div class="live-quick-options">
     <label class="live-toggle" for="live-sensitive"><input id="live-sensitive" type="checkbox" checked><span><strong>Sensibilità alta</strong><br>Alterna lettura normale e contrasto migliorato.</span></label>
     <label class="live-toggle" for="live-smart-pause"><input id="live-smart-pause" type="checkbox" checked><span><strong>Pausa intelligente</strong><br>Si ferma dopo un prodotto e riprende cambiando etichetta.</span></label>
@@ -473,7 +473,76 @@
    const lines=['Prodotto;Prezzo registrato (EUR);Sconto prodotto (%);Quantita;Totale prodotto (EUR);Prezzo finale da scontrino',...state.items.map(x=>[esc(x.name),(x.cents/100).toFixed(2).replace('.',','),x.productDiscount||0,x.qty,(unitNet(x)*x.qty/100).toFixed(2).replace('.',','),x.lockedFinal?'SI':'NO'].join(';'))];
    const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='la-mia-spesa.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);showToast('Lista esportata');
  });
+ // Sulle etichette a peso il PREZZO €/kg NON e' l'importo da inserire.
+ // Legge le colonne «Prezzo €/kg» e «Importo €» e, se possibile,
+ // confronta peso netto × prezzo/kg con l'importo stampato.
+ function weightLabelInfo(text){
+   const rows=String(text||'').replace(/\r/g,'').split('\n').map(v=>v.trim()).filter(Boolean);
+   const unitRx=/(?:prezzo\s*(?:[€e]\s*)?\/\s*k\s*g|prezzo\s*(?:al|per)\s*k\s*g|[€e]\s*\/\s*k\s*g|[€e]\s*k\s*g|\b(?:euro|eur)\s*\/\s*k\s*g|\bal\s*kg\b)/i;
+   const amountRx=/\b(?:importo|totale\s+da\s+pagare|da\s+pagare)\b/i;
+   const heading=rows.findIndex(r=>unitRx.test(r));
+   if(heading<0)return {weighted:false,amountCents:null,verified:false};
+   // Un importo deve essere effettivamente identificato, altrimenti meglio
+   // NON compilare automaticamente il costo con il prezzo al chilogrammo.
+   const amountHeading=rows.findIndex((r,i)=>amountRx.test(r)&&Math.abs(i-heading)<=3);
+   if(amountHeading<0)return {weighted:true,amountCents:null,verified:false};
+   const start=Math.max(0,Math.min(heading,amountHeading)-1);
+   const end=Math.min(rows.length,Math.max(heading,amountHeading)+5);
+   const zone=rows.slice(start,end);
+   const cash=/\b\d{1,5}[.,]\d{2}\b/g;
+   const three=/\b\d{1,3}[.,]\d{3}\b/g;
+   let amountCents=null,unitCents=null,weightKg=null;
+   // Caso 1: importo e numero nella medesima riga.
+   for(const line of zone){
+     const m=amountRx.exec(line);
+     if(m){
+       const after=line.slice(m.index+m[0].length).replace(/^\s*(?:€|euro|eur)\s*/i,'');
+       const n=after.match(/^\s*[:=]?\s*(\d{1,5}[.,]\d{2})\b/);
+       if(n){amountCents=parsePrice(n[1]);break;}
+     }
+   }
+   // Caso 2: due prezzi affiancati sotto le colonne Prezzo €/kg e Importo €.
+   // In etichette Coop come «0,016  0,282  7,30  2,06»,
+   // il secondo prezzo, a destra, e' l'importo effettivo.
+   let bestPair=null;
+   for(let i=0;i<zone.length;i++){
+     const line=zone[i],money=[...line.matchAll(cash)].map(m=>({cents:parsePrice(m[0]),index:m.index}));
+     if(money.length<2)continue;
+     if(i+start<Math.min(heading,amountHeading)-1)continue;
+     const before=zone.slice(Math.max(0,i-1),i+1).join(' ');
+     const distance=Math.abs(i+start-Math.max(heading,amountHeading));
+     const score=money.length*2-distance+(amountRx.test(before)?2:0);
+     if(!bestPair||score>bestPair.score)bestPair={money,score,line};
+   }
+   if(bestPair){
+     const m=bestPair.money;
+     if(amountCents===null)amountCents=m[m.length-1].cents;
+     unitCents=m[m.length-2].cents;
+     const weights=[...bestPair.line.matchAll(three)].map(x=>Number(x[0].replace(',','.'))).filter(x=>x>0&&x<100);
+     if(weights.length)weightKg=weights[weights.length-1];
+   }
+   // Caso 3: ogni valore e' finito su righe OCR separate.
+   if(amountCents===null){
+     const next=rows.slice(amountHeading+1,amountHeading+4);
+     const flat=next.flatMap(r=>[...r.matchAll(cash)].map(x=>parsePrice(x[0])));
+     if(flat.length>=2)amountCents=flat[flat.length-1];
+     // Un numero singolo senza la certezza della colonna non basta.
+   }
+   if(weightKg===null){
+     const nearby=zone.flatMap(row=>[...row.matchAll(three)].map(m=>Number(m[0].replace(',','.')))).filter(n=>n>0&&n<100);
+     if(nearby.length)weightKg=nearby[nearby.length-1];
+   }
+   const verified=amountCents!==null&&unitCents!==null&&weightKg!==null
+     &&Math.abs(Math.round(unitCents*weightKg)-amountCents)<=1;
+   return {weighted:true,amountCents,unitCents,weightKg,verified};
+ }
  function extractPrices(text){
+   const weighted=weightLabelInfo(text);
+   if(weighted.weighted){
+     // Mai suggerire la tariffa €/kg come se fosse il costo della confezione.
+     return weighted.amountCents===null?[]:[{cents:weighted.amountCents,score:130,line:0,column:0,source:'importo',weighted:true,weightVerified:weighted.verified}];
+   }
+
    // Non confondere €/kg, peso e importo: considera il contesto su righe vicine.
    // «Importo» / «Totale» accanto al numero prevale sul prezzo unitario.
    const entries=String(text).replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
@@ -647,11 +716,15 @@
      return [];
    }
    const values=extractPrices(text),target=$('prices');target.replaceChildren();
+   const weight=weightLabelInfo(text);
+   if(weight.weighted&&weight.amountCents===null)$('photo-status').textContent='⚠️ Prezzo al kg rilevato, ma importo finale non leggibile: non propongo il prezzo al chilo.';
    const name=extractProductName(text);
    if(autoReview){const offer=buildOffer(text,values.length?values[0].cents:null);
      showReview(name,offer.baseCents??(values.length?values[0].cents:null),Boolean(name||values.length),offer);
    }
-   $('photo-status').textContent=values.length
+   $('photo-status').textContent=weight.weighted&&weight.amountCents===null
+    ?'⚠️ Prezzo al kg rilevato, ma importo finale non leggibile. Inserisci il costo effettivo o seleziona la zona «Importo €».'
+    :values.length
     ?'Ho trovato '+values.length+' possibile/i prezzo/i'+(name?' e un nome prodotto.':' ma non un nome sicuro.')+' Controlla e conferma.'
     :'Non ho trovato un prezzo attendibile. Seleziona la zona del prezzo nella foto e riprova oppure scrivilo.';
    values.forEach((v,i)=>{
@@ -1455,6 +1528,7 @@
    if(looksLikeReceipt(text))return null;
    const prices=extractPrices(text),name=extractProductName(text);
    if(!prices.length)return null;
+   const weight=weightLabelInfo(text);
    const chosen=prices[0];
    if(!Number.isInteger(chosen.cents)||chosen.cents<=0)return null;
    const normalized=plain(text);
@@ -1476,6 +1550,9 @@
    const minConfidence=$('live-sensitive').checked?72:76;
    let sure=knownName&&ocrConfidence>=minConfidence&&(hasEuro||hasPriceCue)&&amountCount<=1;
    let reason='';
+   // Anche con due letture OCR uguali, il prezzo €/kg non va mai
+   // registrato automaticamente al posto dell'importo finale.
+   if(weight.weighted&&!weight.verified){sure=false;reason='Articolo a peso: verifica che il prezzo proposto sia «Importo €», NON «Prezzo €/kg».';}
    if(!name){sure=false;reason='Il nome non è leggibile.';}
    else if(!knownName){sure=false;reason='Controlla il nome del prodotto.';}
    if(genericUnique>1&&!chosen.source.includes('importo')&&!discount){sure=false;reason='Sono presenti prezzi diversi.';}
@@ -1511,7 +1588,8 @@
    const guess=liveOfferFromText(text,confidence);
    if(!guess){
      liveStreak=0;liveLastKey='';
-     liveMessage('Inquadra da vicino un cartellino, con il prezzo dentro il riquadro.');
+     const weight=weightLabelInfo(text);
+     liveMessage(weight.weighted?'⚠️ Prezzo al kg individuato, ma NON leggo con sicurezza l’«Importo €». Non aggiungo nulla: avvicina l’etichetta o inserisci l’importo a voce.':'Inquadra da vicino un cartellino, con il prezzo dentro il riquadro.',weight.weighted?'warn':'');
      return;
    }
    if(seenLiveKeys.has(guess.key)){
