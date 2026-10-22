@@ -206,7 +206,7 @@
   <section class="section receipt-section" aria-labelledby="receipt-title" id="receipt-section">
    <div class="section-head"><h2 id="receipt-title">🧾 Controlla uno scontrino</h2><span class="live-tag">MIGLIORATO</span></div>
    <p class="hint">Questa modalità cerca <strong>tutte le righe dello scontrino</strong>, separandole dal totale finale. <strong>Non aggiunge nulla automaticamente.</strong> Ti propone una lista da verificare e confronta la somma con il totale stampato.</p>
-   <div class="receipt-howto"><strong>Per scontrini lunghi:</strong> scatta la parte alta, poi quella centrale, infine quella bassa, <strong>una fotografia per volta</strong>. Avvicina il telefono finché il testo riempie la foto. L’app unirà le letture e segnalerà i possibili doppioni. Fotografa <strong>6–8 righe per volta</strong>, con una piccola sovrapposizione. Se lo scontrino è corto puoi usare una sola foto.</div>
+   <div class="receipt-howto"><strong>Per scontrini lunghi:</strong> scatta la parte alta, poi quella centrale, infine quella bassa, <strong>una fotografia per volta</strong>. Avvicina il telefono finché il testo riempie la foto. L’app unirà le letture e segnalerà i possibili doppioni. Fotografa <strong>6–8 righe per volta</strong>, con una piccola sovrapposizione. Se l’app non riconosce le scritte, proverà da sola una seconda lettura ingrandita. Se lo scontrino è corto puoi usare una sola foto.</div>
    <div class="receipt-zone" style="margin-top:13px">
     <div class="camera-zone">
      <label class="camera-label" for="receipt-photo">📸 Scatta o scegli una parte dello scontrino</label>
@@ -214,6 +214,7 @@
      <img id="receipt-preview" class="receipt-preview" alt="Anteprima dello scontrino da leggere" hidden>
     </div>
     <p class="receipt-count" id="receipt-count">Parti lette: 0</p>
+    <details class="receipt-details" id="receipt-diagnostic"><summary>🔎 Controlla il testo riconosciuto dalla foto</summary><p class="hint">Se l'app non riconosce i prodotti, qui puoi verificare se le lettere sono state lette. Non è necessario copiare codici.</p><pre id="receipt-ocr-preview" style="white-space:pre-wrap;word-wrap:break-word;max-height:210px;overflow:auto;font-size:12px;background:#f3f6fc;border-radius:12px;padding:12px">Non è stata ancora letta nessuna fotografia.</pre></details>
     <p class="receipt-alert" id="receipt-status" role="status" aria-live="polite">Inizia dalla parte alta. Per aggiungere altre parti, tocca di nuovo il pulsante della fotografia.</p>
     <div class="receipt-tools"><button class="secondary" id="receipt-retry" type="button" disabled>↻ Rileggi ultima foto</button><button class="secondary" id="receipt-reset" type="button">Nuovo scontrino</button></div>
     <details class="receipt-details"><summary>Oppure incolla il testo dello scontrino</summary>
@@ -968,6 +969,33 @@
    const ctx=canvas.getContext('2d',{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
    ctx.drawImage(img,0,0,canvas.width,canvas.height);return canvas;
  }
+ // Una ricevuta stretta spesso copre solo il centro della foto. In caso di lettura
+ // scarsa usiamo un ritaglio ingrandito con contrasto, lasciando l'originale intatto.
+ function receiptCentralCanvas(img,region='main'){
+   const w=img.naturalWidth,h=img.naturalHeight;
+   const x=Math.floor(w*(region==='total'?.12:.16));
+   const y=Math.floor(h*(region==='total'?.48:.035));
+   const cw=Math.floor(w*(region==='total'?.76:.68));
+   const ch=Math.min(h-y,Math.floor(h*(region==='total'?.46:.91)));
+   const scale=Math.min(3.4,2550/Math.max(cw,1),3900/Math.max(ch,1));
+   const cv=document.createElement('canvas');
+   cv.width=Math.max(1,Math.round(cw*scale));cv.height=Math.max(1,Math.round(ch*scale));
+   const cx=cv.getContext('2d',{alpha:false,willReadFrequently:true});
+   cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';
+   cx.drawImage(img,x,y,cw,ch,0,0,cv.width,cv.height);
+   const d=cx.getImageData(0,0,cv.width,cv.height);
+   for(let i=0;i<d.data.length;i+=4){
+      const v=d.data[i]*.299+d.data[i+1]*.587+d.data[i+2]*.114;
+      // Schiarisce lo sfondo leggermente ombreggiato e dà rilievo ai caratteri.
+      const gray=Math.max(0,Math.min(255,(v-135)*1.55+163));
+      d.data[i]=d.data[i+1]=d.data[i+2]=gray;
+   }
+   cx.putImageData(d,0,0);return cv;
+ }
+ function receiptReadScore(text){
+   const p=parseReceipt(text);
+   return p.rows.length*3+(p.totalCents!==null?8:0)+Math.min(5,receiptLines(text).length)*.1;
+ }
  function receiptTotalFocusCanvas(img){
    const w=img.naturalWidth,h=img.naturalHeight,y=Math.floor(h*.35),regionH=h-y;
    const scale=Math.min(2.8,2500/Math.max(1,w),2400/Math.max(1,regionH));
@@ -985,8 +1013,8 @@
    if(!receiptFile||receiptWorkerBusy)return;
    stopLive();receiptWorkerBusy=true;
    $('receipt-retry').disabled=true;$('receipt-photo').disabled=true;
-   receiptStatus('Leggo la fotografia '+(receiptScanParts.length+1)+'. Tieni presente che le righe troppo piccole potrebbero non essere leggibili…');
-   let worker=null,cv=null;
+   receiptStatus('Sto leggendo la fotografia. Se il testo è piccolo, proverò anche a ingrandirlo…');
+   let worker=null,cv=null,extraCanvas=null,totalCanvas=null;
    try{
      const img=$('receipt-preview');
      if(!img.complete||!img.naturalWidth)throw new Error('Foto non caricata');
@@ -996,18 +1024,27 @@
      await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.AUTO,preserve_interword_spaces:'1'});
      const r=await worker.recognize(cv);
      let txt=(r?.data?.text||'').trim();
-     if(txt&&parseReceipt(txt).totalCents===null){
-       // Prova mirata nell'area in cui normalmente compare il totale: nessuna riga prodotto duplicata.
-       let totalCanvas=null;
-       try{
-         totalCanvas=receiptTotalFocusCanvas(img);
-         await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
-         const extra=((await worker.recognize(totalCanvas))?.data?.text||'').trim();
-         const detected=parseReceipt(extra).totalCents;
-         if(detected!==null)txt+='\nTOTALE COMPLESSIVO '+(detected/100).toFixed(2).replace('.',',');
-       }catch(e){}finally{if(totalCanvas)totalCanvas.width=totalCanvas.height=0;}
+     const initialText=txt;
+     // Fallback: ingrandisce la parte centrale, importante per scontrini sottili
+     // fotografati da lontano, e cambia il modello di segmentazione delle righe.
+     if(receiptReadScore(txt)<10){
+       receiptStatus('Le scritte risultano piccole: eseguo una seconda lettura ingrandita…');
+       extraCanvas=receiptCentralCanvas(img,'main');
+       await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+       const enlarged=((await worker.recognize(extraCanvas))?.data?.text||'').trim();
+       if(receiptReadScore(enlarged)>receiptReadScore(txt))txt=enlarged;
      }
-     if(!txt){receiptStatus('Questa foto non è leggibile. Avvicina la fotocamera alla stampa e riprova: nessuna nuova parte è stata aggiunta.','warn');return;}
+     if(parseReceipt(txt).totalCents===null){
+       // La zona dei totali è normalmente nella metà inferiore dello scontrino.
+       // Il risultato serve solo al confronto e non produce nuove righe prodotto.
+       totalCanvas=receiptCentralCanvas(img,'total');
+       await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+       const extra=((await worker.recognize(totalCanvas))?.data?.text||'').trim();
+       const detected=parseReceipt(extra).totalCents;
+       if(detected!==null)txt+='\nTOTALE COMPLESSIVO '+(detected/100).toFixed(2).replace('.',',');
+     }
+     $('receipt-ocr-preview').textContent=txt||'Il programma non ha individuato alcun testo leggibile nella foto.';
+     if(!txt){receiptStatus('Nessuna scritta leggibile. Prova una foto ravvicinata e ben illuminata oppure inserisci il totale a mano.','warn');return;}
      const photoKey=[receiptFile.name,receiptFile.size,receiptFile.lastModified].join('|');
      const oldIndex=receiptScanKeys.indexOf(photoKey);
      if(oldIndex>=0){receiptScanParts[oldIndex]=txt;}
@@ -1016,12 +1053,17 @@
      $('receipt-text').value=all;
      handleReceiptText(all);
      updateReceiptCount();
-     receiptStatus('✅ Parte '+(oldIndex>=0?oldIndex+1:receiptScanParts.length)+' letta. '+receiptDraft.rows.length+' possibili voci. '+
-       (receiptDraft.totalCents===null&&!receiptTotalEntered?'Se il totale è visibile ma non viene letto, inseriscilo nel campo «Totale finale dello scontrino».':'Controlla i prodotti e confronta il totale. Puoi aggiungere altre fotografie.'), 'good');
-   }catch(e){receiptStatus('Lettura non riuscita. Riprova avvicinando il telefono o utilizza il testo riconosciuto da Foto.','warn');}
+     const parsed=receiptDraft;
+     if(parsed.rows.length===0){
+       $('receipt-diagnostic').open=true;
+       receiptStatus('⚠️ La fotografia è stata acquisita, ma non ho riconosciuto righe di prodotti. Il testo letto è visibile nel riquadro «Controlla il testo riconosciuto». Non importare prodotti.','warn');
+     }else{
+       receiptStatus('✅ '+(oldIndex>=0?'Parte riletta':'Parte '+receiptScanParts.length+' letta')+': '+parsed.rows.length+' possibili voci. Verifica sempre prezzi, quantità e totale prima di importare.'+(parsed.totalCents===null&&!receiptTotalEntered?' Puoi scrivere il totale nell’apposito campo.':''),'good');
+     }
+   }catch(e){receiptStatus('Lettura non riuscita. Riprova da vicino oppure utilizza il testo riconosciuto da Foto.','warn');}
    finally{
      try{if(worker)await worker.terminate();}catch(e){}
-     if(cv){cv.width=cv.height=0;}
+     for(const canvas of [cv,extraCanvas,totalCanvas])if(canvas){canvas.width=canvas.height=0;}
      receiptWorkerBusy=false;$('receipt-retry').disabled=!receiptFile;$('receipt-photo').disabled=false;
    }
  }
@@ -1051,6 +1093,15 @@
      let total=parseReceipt(txt).totalCents;
      // Ammessa una singola cifra se questa fotografia mostra ESCLUSIVAMENTE la riga totale.
      if(total===null){const matches=receiptMoneyTokens(txt);if(matches.length===1)total=matches[0].cents;}
+     if(total===null){
+       const focused=receiptCentralCanvas(im,'main');
+       try{
+         await worker.setParameters({tessedit_pageseg_mode:window.Tesseract.PSM.SINGLE_BLOCK,preserve_interword_spaces:'1'});
+         const extra=((await worker.recognize(focused))?.data?.text||'').trim();
+         total=parseReceipt(extra).totalCents;
+         if(total===null){const amounts=receiptMoneyTokens(extra);if(amounts.length===1)total=amounts[0].cents;}
+       }finally{focused.width=focused.height=0;}
+     }
      if(total!==null&&total>0){
        receiptTotalEntered=true;receiptManualTotalCents=total;
        $('receipt-total-edit').value=(total/100).toFixed(2).replace('.',',');
@@ -1076,7 +1127,7 @@
    if(receiptWorkerBusy)return;
    receiptScanParts=[];receiptScanKeys=[];receiptFile=null;receiptTextSource='';receiptDraft=null;
    receiptTotalEntered=false;receiptManualTotalCents=null;$('receipt-total-edit').value='';
-   $('receipt-review').hidden=true;$('receipt-text').value='';$('receipt-retry').disabled=true;
+   $('receipt-review').hidden=true;$('receipt-text').value='';$('receipt-retry').disabled=true;$('receipt-diagnostic').open=false;$('receipt-ocr-preview').textContent='Non è stata ancora letta nessuna fotografia.';
    const img=$('receipt-preview');if(img.dataset.url){URL.revokeObjectURL(img.dataset.url);delete img.dataset.url;}
    img.hidden=true;img.removeAttribute('src');updateReceiptCount();
    receiptStatus('Nuovo scontrino: fotografa la parte alta, poi quella centrale, infine quella bassa.');
