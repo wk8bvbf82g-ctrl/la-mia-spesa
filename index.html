@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="La mia spesa">
-  <meta name="description" content="La mia spesa: scanner rapido con pausa intelligente, comandi vocali, sconti, scontrini e lista prodotti.">
+  <meta name="description" content="La mia spesa: scanner rapido, BARCODE 3, dialogo vocale, sconti e lista prodotti.">
   <title>La mia spesa</title>
   <style>
     :root{color-scheme:light;--ink:#172c47;--muted:#65778b;--bg:#f5f7fc;--card:#fff;--line:#e5eaf1;--blue:#3669e8;--blue2:#174cbd;--radius:22px}
@@ -192,6 +192,16 @@
     .voice-review-grid{display:grid;grid-template-columns:minmax(0,1fr) 118px;gap:8px}
     .voice-review-grid .voice-wide{grid-column:1 / -1}
     .voice-review input,.voice-review select{background:#fff!important}
+    .voice-answer{background:#eaf5f0;border:1.5px solid #a9d7bf;color:#164b38;padding:13px;border-radius:14px;margin:11px 0 12px;line-height:1.5}
+    .voice-answer strong{display:block;margin-bottom:4px;font-size:13px}
+    .voice-answer p{margin:0;font-size:15px;font-weight:650;overflow-wrap:anywhere}
+    .voice-answer-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
+    .voice-answer-actions button{flex:1;min-width:130px}
+    .voice-questions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0 12px}
+    .voice-questions button{border:1px solid #c8d8f6;border-radius:11px;background:#f4f7ff;color:#224e94;padding:10px 8px;font-weight:750;font-size:12px;line-height:1.4}
+    .voice-questions button:last-child:nth-child(odd){grid-column:1/-1}
+    .voice-toggle{display:flex;gap:9px;align-items:center;margin:10px 0;font-size:13px;font-weight:650;color:#355470}
+    .voice-toggle input{width:19px;height:19px;accent-color:var(--blue)}
     .voice-review select{display:block;width:100%;border:1.5px solid #dce3ed;border-radius:13px;padding:12px;min-height:45px;color:#172c47}
     #voice-preview-result{margin:12px 0;padding:11px;background:#fff;border-radius:10px;line-height:1.5;font-size:13px}
     .voice-review .primary{font-size:16px}
@@ -241,15 +251,27 @@
   </section>
 
   <section class="section voice-section" aria-labelledby="voice-title" id="voice-section">
-   <div class="voice-head"><h2 id="voice-title">🎙️ Aggiungi con la voce</h2><span class="voice-tag">NUOVO</span></div>
-   <p class="voice-help">Quando trovi un prodotto, premi il microfono e comunica <strong>nome e prezzo finale</strong>. Non serve usare lo scanner.</p>
+   <div class="voice-head"><h2 id="voice-title">🎙️ Parla con La mia spesa</h2><span class="voice-tag">DIALOGO</span></div>
+   <p class="voice-help">Puoi <strong>aggiungere prodotti parlando</strong> e anche <strong>fare domande al carrello</strong>. L’app risponde con i dati che hai registrato; non è un assistente AI generale.</p>
    <div class="general-warning" id="voice-global-warning" hidden><strong id="voice-global-value"></strong><div>Il totale attuale potrebbe essere troppo basso: questo sconto è applicato a tutta la spesa e non rappresenta automaticamente le offerte del negozio.</div><button type="button" id="voice-global-reset">Azzera lo sconto generale</button></div>
-   <div class="voice-sample">Puoi dire: <strong>«Banane, prezzo finale un euro e ottanta, aggiungi al carrello»</strong>.<br>Oppure: <strong>«Pane, prezzo originale due euro, sconto venti per cento»</strong>.</div>
+   <div class="voice-sample">Prova a chiedere: <strong>«Quanto ho speso finora?»</strong> oppure <strong>«Quanti prodotti ho?»</strong>.<br>Per aggiungere: <strong>«Banane, due euro e cinquanta, aggiungi al carrello»</strong>.</div>
+   <div class="voice-questions">
+    <button type="button" data-voice-question="Quanto ho speso finora?">💶 Quanto ho speso?</button>
+    <button type="button" data-voice-question="Quanti prodotti ho nel carrello?">🛒 Quanti prodotti?</button>
+    <button type="button" data-voice-question="Quanto ho risparmiato?">🏷️ Quanto ho risparmiato?</button>
+    <button type="button" data-voice-question="Quali prodotti ci sono nel carrello?">🧾 Cosa c’è nel carrello?</button>
+   </div>
+   <label class="voice-toggle" for="voice-speak-enabled"><input id="voice-speak-enabled" type="checkbox" checked>🔊 Leggi le risposte ad alta voce (se disponibile)</label>
    <div class="voice-actions"><button type="button" class="primary" id="voice-start">🎙️ Parla ora</button><button class="secondary" id="voice-stop" type="button" disabled>Ferma</button></div>
    <p class="status" role="status" aria-live="polite" id="voice-status">Ascolto solo dopo aver premuto «Parla ora». Se il microfono non funziona nell’app, usa il microfono della tastiera.</p>
    <label for="voice-text" class="step-label">Frase riconosciuta (puoi correggerla)</label>
    <textarea id="voice-text" placeholder="Es. Banane, 1 euro e 80, aggiungi al carrello" rows="2"></textarea>
-   <button class="secondary" id="voice-parse" type="button" style="width:100%;margin-top:8px">Interpreta frase</button>
+   <button class="secondary" id="voice-parse" type="button" style="width:100%;margin-top:8px">Invia domanda o comando</button>
+   <div class="voice-answer" id="voice-answer" hidden aria-live="polite">
+    <strong>💬 Risposta di La mia spesa</strong>
+    <p id="voice-answer-text"></p>
+    <div class="voice-answer-actions"><button class="secondary" type="button" id="voice-answer-repeat">🔊 Ascolta risposta</button></div>
+   </div>
    <div class="voice-review" id="voice-review" hidden>
     <h3 style="margin:0 0 5px;font-size:17px;color:#214882">Verifica il prodotto</h3>
     <div class="voice-review-grid">
@@ -266,7 +288,7 @@
     <button type="button" class="primary" id="voice-add">✅ Conferma e aggiungi al carrello</button>
    </div>
    <button type="button" class="secondary voice-undo" id="voice-undo" hidden>↩️ Annulla ultimo inserimento vocale</button>
-   <p class="hint">Lo sconto viene applicato una sola volta. La dettatura può richiedere internet e l’autorizzazione al microfono; non rimane in ascolto in sottofondo. Non effettua pagamenti.</p>
+   <p class="hint">Le risposte usano soltanto il tuo carrello salvato sul telefono. Il microfono si attiva solo dopo «Parla ora» e non ascolta in sottofondo. La sintesi vocale dipende dal browser e dall’audio dell’iPhone. Non effettua pagamenti.</p>
   </section>
 
   <section class="section barcode-section" id="barcode-section" aria-labelledby="barcode-title">
@@ -2020,8 +2042,71 @@
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&barcodeActive)barcodeStop();});
  window.addEventListener('pagehide',()=>{if(barcodeActive)barcodeStop();});
 
- // Comandi vocali: lavora sulla stessa lista e sugli stessi conteggi di scanner e scontrino.
+ // Dialogo vocale: usa SOLO i dati locali di lista, scanner e scontrino.
  let voiceRecognition=null,voiceListening=false,voiceHadResult=false,voiceLastId=null,voiceGuard='';
+ let voiceLastAnswer='',voicePendingAnswer='';
+ function voiceAudioSay(message){
+   if(!message||!$('voice-speak-enabled').checked)return;
+   if(!('speechSynthesis' in window))return;
+   try{
+     window.speechSynthesis.cancel();
+     const u=new SpeechSynthesisUtterance(message);u.lang='it-IT';u.rate=.96;u.pitch=1;
+     const voices=window.speechSynthesis.getVoices();
+     const it=voices.find(v=>/^it([-_]|$)/i.test(v.lang));if(it)u.voice=it;
+     window.speechSynthesis.speak(u);
+   }catch(e){/* Il testo rimane comunque visibile, anche senza audio. */}
+ }
+ function voiceAnswer(message){
+   voiceLastAnswer=message;
+   $('voice-answer-text').textContent=message;
+   $('voice-answer').hidden=false;
+   if(voiceListening){voicePendingAnswer=message;}
+   else voiceAudioSay(message);
+ }
+ function dialogueAnswer(sentence){
+   const t=voiceNorm(sentence).replace(/[?!.’']/g,' ').replace(/\s+/g,' ').trim();
+   const count=state.items.reduce((n,x)=>n+x.qty,0);
+   const gross=state.items.reduce((n,x)=>n+x.cents*x.qty,0);
+   const total=currentCartCents();
+   const difference=gross-total;
+   if(/^(?:ripeti|ripeti la risposta|puoi ripetere)$/.test(t))return {answer:voiceLastAnswer||'Non ho ancora dato una risposta. Chiedimi quanto hai speso.'};
+   if(/\b(?:quanto|quale|qual e|dimmi|mi dici|totale|a quanto)\b.*\b(?:risparmi|risparmiato|risparmio|sconti ottenuti)\b/.test(t)||/^(?:risparmio|sconti ottenuti)$/.test(t))
+     return {answer:count?('Il risparmio stimato sui prodotti registrati è '+money(difference)+'. '+(state.discount?'Attenzione: è attivo anche uno sconto generale del '+state.discount+' per cento.':'Non è attivo uno sconto generale.')):'Il carrello è vuoto: il risparmio è zero.'};
+   if(/\b(?:sconto generale|quale sconto|che sconto|percentuale di sconto)\b/.test(t))
+     return {answer:state.discount?'Hai impostato uno sconto generale del '+state.discount+' per cento. Ricorda che non è uno sconto confermato dal supermercato.':'Lo sconto generale è disattivato. Eventuali sconti dei singoli prodotti vengono conteggiati a parte.'};
+   if(/\b(?:quanti|quante|numero di)\b.*\b(?:prodotti|articoli|pezzi|cose|voci)\b/.test(t)||/^(?:quanti prodotti|quanti articoli)$/.test(t))
+     return {answer:count?'Hai '+count+' pezzi nel carrello, distribuiti in '+state.items.length+' voci.':'Il carrello è vuoto. Non hai ancora aggiunto prodotti.'};
+   if(/\b(?:qual[ei] prodotti|cosa c[e ]|cosa ho|elenca|elencami|lista della spesa|cosa contiene|che cosa ho|dimmi i prodotti)\b/.test(t)&&/\b(?:carrello|spesa|lista|prodotti|preso|acquistato|comprato)\b/.test(t)){
+     if(!state.items.length)return {answer:'Il carrello è vuoto.'};
+     const labels=state.items.slice(-6).map(x=>x.name+' '+(x.qty>1?x.qty+' pezzi':'un pezzo'));
+     return {answer:'Nel carrello hai '+labels.join(', ')+(state.items.length>6?', e altri '+(state.items.length-6)+' prodotti.':'.')};
+   }
+   if(/\b(?:ultimo prodotto|ultima cosa|ultimo articolo|cosa ho aggiunto per ultimo)\b/.test(t)){
+     const last=state.items.at(-1);return {answer:last?'L’ultimo prodotto registrato è '+last.name+', '+money(unitNet(last))+' ciascuno.':'Non ci sono prodotti registrati.'};
+   }
+   if(/\b(?:quanto manca|quanto mi manca)\b/.test(t)){
+     const match=t.match(/(?:arrivare a|raggiungere|per i)\s*(\d+(?:[,.]\d{1,2})?)\s*(?:euro|€)?/);
+     if(match){const target=parsePrice(match[1]);if(target!==null)return {answer:total>=target?'Hai già raggiunto '+money(target)+'. Il totale attuale è '+money(total)+'.':'Ti mancano '+money(target-total)+' per arrivare a '+money(target)+'.'};}
+   }
+   if(/\b(?:quanto costa|quanto costano|prezzo di|prezzo del|prezzo della)\b/.test(t)||/\bquanto ho pagato\b\s+\b(?:per|il|la|lo|i|un|una)\b/.test(t)){
+     const term=t.replace(/^.*?\b(?:quanto costa|quanto costano|prezzo di|prezzo del|prezzo della|quanto ho pagato)\b/,'').replace(/^\s*(?:il|la|lo|le|gli|i|un|una|dei|delle|della|del|di|per|l)\s*/,'').replace(/\b(?:nel carrello|in lista|nella lista)\b/g,'').trim();
+     if(!term)return {answer:'Dimmi il prodotto, per esempio: quanto costa il pane?'};
+     const hit=state.items.slice().reverse().find(x=>voiceNorm(x.name).replace(/[’']/g,' ').includes(term)||term.includes(voiceNorm(x.name).replace(/[’']/g,' ')));
+     return {answer:hit?('Per '+hit.name+' hai registrato '+money(unitNet(hit))+' ciascuno.'):('Non trovo «'+term+'» nel carrello.')};
+   }
+   if(/^(?:c e|ce|ho|abbiamo|ci sono)\s+/.test(t)&&/\b(?:carrello|lista|spesa)\b/.test(t)){
+     const match=t.match(/^(?:c e|ce|ho|abbiamo|ci sono)\s+(.+?)\s+(?:nel carrello|in lista|nella lista|nella spesa)/);
+     if(match){const term=match[1].replace(/^(?:il|la|lo|i|le|gli|un|una|del|della)\s+/,'').trim();const hits=state.items.filter(x=>voiceNorm(x.name).includes(term));return {answer:hits.length?'Sì, nel carrello c’è '+hits.map(x=>x.name).join(', ')+'.':'Non vedo '+term+' nel carrello.'};}
+   }
+   if(/\b(?:quanto|totale|speso|spendendo|pagare|spesa finora|parziale|conto|ammonta)\b/.test(t)&&
+      !/\b(?:sconto|risparmio|prodotti|pezzi|prezzo di|prezzo del|prezzo della|quanto costa)\b/.test(t))
+     return {answer:count?'Al momento il totale stimato del carrello è '+money(total)+', per '+count+' pezzi.':'Il tuo carrello è vuoto: totale zero euro.'};
+   if(/\b(?:aiuto|cosa posso chiederti|come funziona|che cosa sai fare)\b/.test(t))
+     return {answer:'Puoi chiedermi: quanto ho speso, quanti prodotti ho, quanto ho risparmiato, cosa c’è nel carrello o quanto costa il pane. Puoi anche aggiungere prodotti parlando.'};
+   if(/^(?:quanto|quanti|quante|cosa|come|perche|dove|quando|qual|dimmi|mi dici|puoi|elencami|c e|ho)\b/.test(t))
+     return {answer:'Non ho capito bene la domanda. Puoi chiedermi quanto hai speso, quanti prodotti ci sono o quanto hai risparmiato.'};
+   return null;
+ }
  const VOICE_WORDS={zero:0,un:1,uno:1,una:1,primo:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,tredici:13,quattordici:14,quindici:15,sedici:16,diciassette:17,diciotto:18,diciannove:19,venti:20,ventuno:21,ventidue:22,ventitre:23,ventiquattro:24,venticinque:25,ventisei:26,ventisette:27,ventotto:28,ventinove:29,trenta:30,quaranta:40,cinquanta:50,sessanta:60,settanta:70,ottanta:80,novanta:90,cento:100};
  function voiceNorm(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
  function voiceWordInt(tok){
@@ -2140,13 +2225,17 @@
    state.items.push(item);voiceLastId=item.id;voiceGuard=key;save();render();
    $('voice-undo').hidden=false;$('voice-review').hidden=true;
    $('voice-status').textContent='✅ '+name+' aggiunto: '+money((final?cents:unitNet(item))*qty)+'. Se il prezzo non è giusto, premi «Annulla ultimo inserimento vocale».';
+   voiceAnswer('Ho aggiunto '+name+', '+money((final?cents:unitNet(item))*qty)+'. Il totale del carrello ora è '+money(currentCartCents())+'.');
    if(spoken)showToast('Aggiunto con la voce · '+money((final?cents:unitNet(item))*qty));
    else showToast('Prodotto aggiunto al carrello');
    return true;
  }
  function voiceInterpret(fromMic=false){
    const txt=$('voice-text').value.trim();if(!txt){$('voice-status').textContent='Prima pronuncia o detta una frase.';return;}
-   if(/\b(?:annulla\s+ultimo|elimina\s+ultimo|cancella\s+ultimo)\b/.test(voiceNorm(txt))){voiceUndo();return;}
+   const norm=voiceNorm(txt);
+   if(/\b(?:annulla\s+ultimo|elimina\s+ultimo|cancella\s+ultimo)\b/.test(norm)){voiceUndo();return;}
+   const answer=dialogueAnswer(txt);
+   if(answer){$('voice-review').hidden=true;$('voice-status').textContent='Domanda ricevuta. Puoi fare un’altra domanda premendo «Parla ora».';voiceAnswer(answer.answer);return;}
    voiceProposal(voiceParse(txt),fromMic);
  }
  function voiceUndo(){
@@ -2154,6 +2243,7 @@
    const found=state.items.some(x=>x.id===voiceLastId);
    state.items=state.items.filter(x=>x.id!==voiceLastId);voiceLastId=null;voiceGuard='';save();render();$('voice-undo').hidden=true;
    $('voice-status').textContent=found?'Ultimo prodotto vocale eliminato.':'Prodotto già eliminato.';
+   voiceAnswer(found?'Ho annullato l’ultimo prodotto. Il totale ora è '+money(currentCartCents())+'.':'Non ho trovato un prodotto da annullare.');
  }
  function voiceStop(){if(voiceRecognition&&voiceListening){try{voiceRecognition.stop();}catch(e){}}}
  $('voice-start').addEventListener('click',()=>{
@@ -2161,10 +2251,11 @@
    const R=window.SpeechRecognition||window.webkitSpeechRecognition;
    if(!R){$('voice-status').textContent='Questo browser non permette il riconoscimento diretto. Tocca la casella «Frase riconosciuta», usa il microfono della tastiera iPhone e poi «Interpreta frase».';$('voice-text').focus();return;}
    if(liveActive)stopLive(); // iOS: fotocamera e microfono non devono competere.
-   voiceGuard='';voiceHadResult=false;
+   voiceGuard='';voiceHadResult=false;voicePendingAnswer='';
+   try{if('speechSynthesis' in window)window.speechSynthesis.cancel();}catch(e){}
    try{
      const r=new R();voiceRecognition=r;r.lang='it-IT';r.continuous=false;r.interimResults=false;r.maxAlternatives=1;
-     r.onstart=()=>{voiceListening=true;$('voice-start').textContent='🎙️ Sto ascoltando…';$('voice-start').disabled=true;$('voice-stop').disabled=false;$('voice-status').textContent='Parla ora: nome, prezzo finale e «aggiungi al carrello».';};
+     r.onstart=()=>{voiceListening=true;$('voice-start').textContent='🎙️ Sto ascoltando…';$('voice-start').disabled=true;$('voice-stop').disabled=false;$('voice-status').textContent='Ti ascolto: puoi chiedere il totale, i prodotti oppure aggiungere un articolo.';};
      r.onresult=e=>{
        const transcript=Array.from(e.results).map(x=>x[0]?.transcript||'').join(' ').trim();
        if(!transcript)return;voiceHadResult=true;$('voice-text').value=transcript;voiceInterpret(true);
@@ -2175,7 +2266,11 @@
          er==='no-speech'?'Non ho sentito parole. Premi ancora «Parla ora» e riprova.':
          'Riconoscimento vocale non disponibile ('+er+'). Puoi usare il microfono della tastiera iPhone.';
      };
-     r.onend=()=>{voiceListening=false;$('voice-start').disabled=false;$('voice-start').textContent='🎙️ Parla ora';$('voice-stop').disabled=true;voiceRecognition=null;if(!voiceHadResult&&!$('voice-status').textContent.includes('Microfono')&&!$('voice-status').textContent.includes('Riconoscimento'))$('voice-status').textContent='Ascolto terminato. Premi «Parla ora» o usa la dettatura della tastiera.';};
+     r.onend=()=>{voiceListening=false;$('voice-start').disabled=false;$('voice-start').textContent='🎙️ Parla ora';$('voice-stop').disabled=true;voiceRecognition=null;
+       const answer=voicePendingAnswer;voicePendingAnswer='';
+       if(answer)setTimeout(()=>{if(!voiceListening&&voiceLastAnswer===answer)voiceAudioSay(answer);},180);
+       if(!voiceHadResult&&!$('voice-status').textContent.includes('Microfono')&&!$('voice-status').textContent.includes('Riconoscimento'))$('voice-status').textContent='Ascolto terminato. Premi «Parla ora» o usa la dettatura della tastiera.';
+     };
      r.start();
    }catch(e){voiceListening=false;$('voice-start').disabled=false;$('voice-stop').disabled=true;$('voice-status').textContent='La modalità voce non è disponibile qui. Puoi dettare la frase con il microfono della tastiera iPhone.';$('voice-text').focus();}
  });
@@ -2183,6 +2278,10 @@
  $('voice-parse').addEventListener('click',()=>voiceInterpret(false));
  $('voice-add').addEventListener('click',()=>voiceAdd(false));
  $('voice-undo').addEventListener('click',voiceUndo);
+ $('voice-answer-repeat').addEventListener('click',()=>{if(voiceLastAnswer)voiceAudioSay(voiceLastAnswer);});
+ document.querySelectorAll('[data-voice-question]').forEach(btn=>btn.addEventListener('click',()=>{
+   $('voice-text').value=btn.getAttribute('data-voice-question');voiceInterpret(false);
+ }));
  for(const id of ['voice-name','voice-price','voice-qty','voice-pct','voice-kind'])$(id).addEventListener('input',voiceUpdatePreview);
 
  render();
