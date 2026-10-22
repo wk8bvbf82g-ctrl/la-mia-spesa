@@ -205,6 +205,8 @@
     .barcode-section{border-color:#b1cafa;background:#fff}
     #barcode-reader{margin:12px 0;border:2px dashed #aac3f1;border-radius:16px;overflow:hidden;background:#10213c;min-height:110px}
     #barcode-reader:empty{display:none}
+    #barcode-reader.starting{display:block!important;min-height:240px}
+    #barcode-reader video{display:block!important;width:100%!important;height:auto!important;min-height:200px;object-fit:contain;position:relative!important}
     #barcode-reader video{max-width:100%!important;border-radius:13px}
     .barcode-buttons{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin:10px 0}
     .barcode-buttons button{min-height:52px}
@@ -263,12 +265,15 @@
   </section>
 
   <section class="section barcode-section" id="barcode-section" aria-labelledby="barcode-title">
-   <div class="section-head"><h2 id="barcode-title">▥ Lettore codice a barre</h2><span class="voice-tag">NOVITÀ</span></div>
+   <div class="section-head"><h2 id="barcode-title">▥ Lettore codice a barre</h2><span class="voice-tag">BARCODE 2</span></div>
    <p class="hint">Inquadra il codice EAN del prodotto: non serve leggere tutte le scritte sull’etichetta. L’app cerca il nome nel suo archivio locale oppure online. <strong>Prezzi e sconti del negozio non sono normalmente nel codice.</strong></p>
    <div id="barcode-reader" aria-label="Inquadratura codice a barre"></div>
    <div class="barcode-buttons"><button class="primary" type="button" id="barcode-start">▥ Leggi codice</button><button class="secondary" type="button" id="barcode-stop" disabled>Ferma</button></div>
    <p id="barcode-status" role="status" aria-live="polite">Pronto. Tieni il codice al centro dell’inquadratura.</p>
    <button type="button" class="secondary" id="barcode-next" hidden style="width:100%;margin:6px 0 12px">▶ Scansiona il prossimo prodotto</button>
+   <label class="camera-label" for="barcode-photo">📷 Leggi barcode da una foto</label>
+   <input class="camera-input" id="barcode-photo" type="file" accept="image/*">
+   <p class="barcode-quiet">Puoi scattare o scegliere una foto nitida del solo codice a barre.</p>
    <label for="barcode-manual">Oppure digita il numero sotto al codice</label>
    <div class="barcode-buttons"><input type="text" inputmode="numeric" maxlength="14" id="barcode-manual" placeholder="Es. 2080235002066"><button type="button" class="secondary" id="barcode-manual-go">Cerca</button></div>
    <div id="barcode-form" class="barcode-form" hidden>
@@ -1700,6 +1705,7 @@
    }
  }
  async function startLive(){
+   if(barcodeScanner||$('barcode-start').disabled)await barcodeStop();
    stopLive();
    if(livePending){livePending=null;$('review').hidden=true;}
    const run=++liveRound;
@@ -1776,6 +1782,7 @@
  // Lettura EAN: usa html5-qrcode solo quando richiesto (compatibile con Safari iOS).
  const BARCODE_KEY='la-mia-spesa-codici-v1';
  let barcodeScanner=null,barcodeActive=false,barcodeReady=false,barcodeLocked=false,barcodeCurrent='',barcodeEpoch=0;
+ let barcodeWatch=null,barcodeVideoObserver=null;
  let barcodeHistory={};
  try{const v=JSON.parse(localStorage.getItem(BARCODE_KEY));if(v&&typeof v==='object'&&!Array.isArray(v))barcodeHistory=v;}catch(e){}
  function saveBarcodeHistory(){try{localStorage.setItem(BARCODE_KEY,JSON.stringify(barcodeHistory));}catch(e){}}
@@ -1806,6 +1813,8 @@
  }
  async function barcodeStop(){
    barcodeEpoch++;barcodeActive=false;barcodeLocked=false;
+   clearTimeout(barcodeWatch);barcodeVideoObserver?.disconnect();
+   $('barcode-reader').classList.remove('starting');
    $('barcode-start').disabled=false;$('barcode-stop').disabled=true;
    $('barcode-next').hidden=true;
    const sc=barcodeScanner;barcodeScanner=null;
@@ -1814,19 +1823,26 @@
    barcodeStatus('Lettore fermato. Il carrello rimane salvato.');
  }
  async function barcodeStart(){
-   if(barcodeActive)return;
-   if(liveActive)stopLive();
+   if(barcodeActive||$('barcode-start').disabled)return;
+   stopLive();
    const run=++barcodeEpoch;
    $('barcode-start').disabled=true;
    barcodeStatus('Carico il lettore barcode. La prima volta serve Internet…');
    try{
      await loadBarcodeReader();
      if(run!==barcodeEpoch)return;
+     $('barcode-reader').classList.add('starting');
+     const prepareVideo=()=>{
+       const v=$('barcode-reader').querySelector('video');
+       if(v){v.muted=true;v.defaultMuted=true;v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');v.setAttribute('muted','');}
+     };
+     barcodeVideoObserver=new MutationObserver(prepareVideo);
+     barcodeVideoObserver.observe($('barcode-reader'),{childList:true,subtree:true});
      const formats=window.Html5QrcodeSupportedFormats;
      barcodeScanner=new window.Html5Qrcode('barcode-reader',{
        formatsToSupport:[formats.EAN_13,formats.EAN_8,formats.UPC_A,formats.UPC_E],verbose:false
      });
-     await barcodeScanner.start({facingMode:'environment'}, {fps:12,qrbox:(w,h)=>({width:Math.min(320,Math.max(160,w-35)),height:Math.min(170,Math.max(100,h-20))})},
+     await barcodeScanner.start({facingMode:'environment'}, {fps:10,videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},
        text=>{
          if(!barcodeActive||barcodeLocked)return;
          const code=String(text||'').replace(/\D/g,'');
@@ -1837,9 +1853,17 @@
        },()=>{});
      if(run!==barcodeEpoch){await barcodeStop();return;}
      barcodeActive=true;$('barcode-stop').disabled=false;
+     prepareVideo();
+     const video=$('barcode-reader').querySelector('video');
+     if(video)video.play().catch(()=>barcodeStatus('Tocca l’immagine per avviare il video, oppure usa «Leggi barcode da una foto».'));
+     barcodeWatch=setTimeout(()=>{
+       if(run!==barcodeEpoch||!barcodeActive)return;
+       if(!video||video.readyState<2||!video.videoWidth)barcodeStatus('⚠️ La fotocamera non sta inviando immagini. Premi Ferma e usa «Leggi barcode da una foto», oppure riapri l’app in Safari.');
+     },7000);
      barcodeStatus('Fotocamera attiva: inquadra un codice EAN. Non devi tenere ferma l’intera etichetta.');
    }catch(e){
      if(run!==barcodeEpoch)return;
+     clearTimeout(barcodeWatch);barcodeVideoObserver?.disconnect();$('barcode-reader').classList.remove('starting');
      barcodeActive=false;$('barcode-start').disabled=false;$('barcode-stop').disabled=true;
      barcodeStatus('⚠️ '+(e?.message||'Fotocamera non disponibile')+' Puoi digitare il numero sotto il codice.');
      if(barcodeScanner){try{await barcodeScanner.stop()}catch(x){}barcodeScanner=null;}
@@ -1878,6 +1902,28 @@
      }catch(e){if(rid===barcodeReady)$('barcode-origin').textContent='Catalogo non raggiungibile: puoi inserire il nome manualmente o con la dettatura.';}
    }
  }
+ $('barcode-reader').addEventListener('click',()=>{
+   const v=$('barcode-reader').querySelector('video');
+   if(v){v.muted=true;v.playsInline=true;v.play().catch(()=>barcodeStatus('Video non disponibile: usa «Leggi barcode da una foto».'));}
+ });
+ $('barcode-photo').addEventListener('change',async event=>{
+   const file=event.target.files?.[0];if(!file)return;
+   stopLive();await barcodeStop();
+   const run=++barcodeEpoch;
+   $('barcode-start').disabled=true;$('barcode-photo').disabled=true;
+   barcodeStatus('Leggo il codice dalla foto…');
+   let reader=null;
+   try{
+     await loadBarcodeReader();if(run!==barcodeEpoch)return;
+     const f=window.Html5QrcodeSupportedFormats;
+     reader=new window.Html5Qrcode('barcode-reader',{formatsToSupport:[f.EAN_13,f.EAN_8,f.UPC_A,f.UPC_E],verbose:false});
+     const code=String(await reader.scanFile(file,false)).replace(/\D/g,'');
+     if(run!==barcodeEpoch)return;
+     if(!gtinValid(code))throw Error('Codice non valido');
+     barcodeLocked=true;barcodePresent(code);barcodeStatus('✅ Codice '+code+' riconosciuto dalla foto. Controlla nome e prezzo.');
+   }catch(e){if(run===barcodeEpoch)barcodeStatus('Non riesco a leggere il codice nella foto. Riprova con tutte le barre nitide e i bordi bianchi visibili, oppure digita il numero.');}
+   finally{if(reader)try{reader.clear();}catch(e){}if(run===barcodeEpoch)$('barcode-start').disabled=false;$('barcode-photo').disabled=false;event.target.value='';}
+ });
  $('barcode-start').addEventListener('click',barcodeStart);
  $('barcode-stop').addEventListener('click',barcodeStop);
  $('barcode-next').addEventListener('click',()=>{
